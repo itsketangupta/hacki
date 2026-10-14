@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hacki — Hack Club AI Assistant</title>
+  <link rel="icon" type="image/svg+xml" href="https://assets.hackclub.com/icon-rounded.svg">
+  <link rel="stylesheet" href="style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Phantom+Sans:wght@400;500;700;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <!-- Markdown parser -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+</head>
+<body>
+  <!-- Top Navigation Bar -->
+  <header class="navbar">
+    <div class="nav-brand">
+      <a href="https://hackclub.com" target="_blank" rel="noopener noreferrer" class="flag-link" title="Visit Hack Club">
+        <img src="https://assets.hackclub.com/flag-standalone.svg" alt="Hack Club Flag" class="hc-flag">
+      </a>
+      <div class="brand-info">
+        <div class="brand-title">
+          <span class="brand-name">Hacki</span>
+          <span class="brand-badge">AI Assistant</span>
+        </div>
+        <span class="brand-sub">Trained on Hack Club Team, YSWS & Slack Happenings</span>
+      </div>
+    </div>
+
+    <!-- Live Status Indicators -->
+    <div class="nav-stats">
+      <div class="stat-pill" id="stat-team">
+        <span class="status-dot"></span>
+        <span class="stat-text"><strong id="team-count">145</strong> Team Members</span>
+      </div>
+      <div class="stat-pill" id="stat-ysws">
+        <span class="status-dot"></span>
+        <span class="stat-text"><strong id="ysws-count">26</strong> Active YSWS</span>
+      </div>
+      <div class="stat-pill" id="stat-slack">
+        <span class="status-dot"></span>
+        <span class="stat-text">Slack Synced</span>
+      </div>
+    </div>
+
+    <!-- Quick Tool Buttons -->
+    <div class="nav-actions">
+      <button class="nav-btn" id="open-team-btn" title="View Team Directory">👥 Team</button>
+      <button class="nav-btn" id="open-ysws-btn" title="View Active YSWS Catalog">🚀 YSWS</button>
+      <button class="nav-btn" id="open-opps-btn" title="View Reviewer / Fulfiller Calls">📢 Opportunities</button>
+      <button class="nav-btn icon-btn" id="sync-data-btn" title="Force Sync Data">🔄</button>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="chat-container">
+    <!-- Messages Scroll Area -->
+    <div class="chat-messages" id="chat-messages">
+      <!-- Welcome Hero Card -->
+      <div class="welcome-hero">
+        <div class="hero-avatar">🦖</div>
+        <h1>Meet Hacki!</h1>
+        <p class="hero-desc">
+          Your friendly AI guide to Hack Club. Ask about <strong>founders & team members</strong>, 
+          <strong>new & active YSWS programs</strong>, or <strong>who is hiring reviewers and fulfillers</strong> in Slack!
+        </p>
+
+        <!-- Prompt suggestions -->
+        <div class="quick-prompts">
+          <button class="prompt-chip" data-prompt="Who is the founder of Hack Club?">
+            👑 Who is the founder?
+          </button>
+          <button class="prompt-chip" data-prompt="Which YSWS is new right now?">
+            ✨ Which YSWS is new right now?
+          </button>
+          <button class="prompt-chip" data-prompt="Are any YSWS hiring reviewers or fulfillers right now?">
+            💼 Who is hiring reviewers or fulfillers?
+          </button>
+          <button class="prompt-chip" data-prompt="Can I get Chris Walker's Slack and contact info?">
+            👤 Chris Walker's contact & Slack info
+          </button>
+          <button class="prompt-chip" data-prompt="Who is in charge of Hardware Events at Hack Club?">
+            🛠️ Who leads Hardware Events?
+          </button>
+          <button class="prompt-chip" data-prompt="What active grants or hardware programs exist right now?">
+            🎁 Active grants & perks
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Input Footer Bar -->
+    <footer class="chat-input-area">
+      <div class="input-card">
+        <textarea
+          id="user-input"
+          placeholder="Ask Hacki anything about Hack Club (e.g. 'Who is Deven Jadhav?', 'What is Crescent YSWS?')..."
+          rows="1"
+          autofocus
+        ></textarea>
+        <button id="send-btn" class="send-button" title="Send (Enter)">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+            <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+          </svg>
+        </button>
+      </div>
+      <div class="input-footnote">
+        <span>Powered by <a href="https://ai.hackclub.com" target="_blank">Hack Club AI</a> &amp; real-time Slack Bulletin sync</span>
+        <span>Hosted for Hack Clubbers</span>
+      </div>
+    </footer>
+  </main>
+
+  <!-- Modal / Drawer for Team, YSWS, and Opportunities -->
+  <div class="modal-backdrop" id="modal-backdrop">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2 id="modal-title">Directory</h2>
+        <button class="modal-close" id="modal-close-btn">&times;</button>
+      </div>
+      <div class="modal-search-bar">
+        <input type="text" id="modal-search-input" placeholder="Search...">
+      </div>
+      <div class="modal-content" id="modal-content">
+        <!-- Rendered dynamically -->
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
