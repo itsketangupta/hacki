@@ -33,5 +33,11 @@ export const config = {
   newsKeywords: (process.env.NEWS_KEYWORDS || 'reviewer,review,fulfil,fulfill,fulfillment,hiring,recruiting,opportunity,volunteer,deadline,launch,ysws,bounty,grant,stipend')
     .split(',')
     .map(k => k.trim().toLowerCase())
-    .filter(Boolean)
+    .filter(Boolean),
+
+  // Hack Club Auth
+  authClientId: process.env.HACKCLUB_CLIENT_ID || 'e26af0e5bf638208efa68e2df56a0c10',
+  authClientSecret: process.env.HACKCLUB_CLIENT_SECRET || '561892e90f34f125ca1d52c6dcd2e7b4a7886ae64e71cc63df1553f2566ef824',
+  authRedirectUri: process.env.HACKCLUB_REDIRECT_URI || 'http://localhost:3000/auth/callback',
+  publicBaseUrl: (process.env.PUBLIC_BASE_URL || 'http://localhost:3000').replace(/\/$/, '')
 };

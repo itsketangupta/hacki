@@ -55,14 +55,30 @@
           <span>Slack Opportunities</span>
         </button>
 
-        <!-- Creator Profile Card -->
-        <a href="https://hackclub.enterprise.slack.com/team/U093BDEP8FJ" target="_blank" rel="noopener noreferrer" class="creator-profile-pill" title="Created by Ketan Gupta">
-          <div class="creator-avatar">KG</div>
-          <div class="creator-info">
-            <div class="creator-name">Ketan Gupta</div>
-            <div class="creator-sub">Creator of Hacki &bull; U093BDEP8FJ</div>
+        <!-- Hack Club Auth Section -->
+        <div class="auth-section" id="auth-section">
+          <!-- Logged out state -->
+          <a href="/auth/login" class="hc-auth-btn" id="auth-login-btn">
+            <img src="https://assets.hackclub.com/icon-rounded.svg" alt="HC" class="auth-btn-icon">
+            <span>Sign in with Hack Club</span>
+          </a>
+
+          <!-- Logged in state -->
+          <div class="user-profile-card" id="user-profile-card" style="display: none;">
+            <div class="user-avatar" id="user-avatar">HC</div>
+            <div class="user-details">
+              <div class="user-name" id="user-name">Hack Clubber</div>
+              <div class="user-sub" id="user-sub">Connected</div>
+            </div>
+            <a href="/auth/logout" class="user-logout-btn" title="Sign out">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                <polyline points="16 17 21 12 16 7"/>
+                <line x1="21" y1="12" x2="9" y2="12"/>
+              </svg>
+            </a>
           </div>
-        </a>
+        </div>
       </div>
     </aside>
 
@@ -103,25 +119,6 @@
             <img src="https://assets.hackclub.com/icon-rounded.svg" alt="Hack Club Logo" class="empty-hc-logo">
           </div>
           <h2 class="empty-title">What can I help with today?</h2>
-
-          <div class="prompt-grid">
-            <button class="prompt-card" data-prompt="Who is the founder of Hack Club?">
-              <span class="prompt-text">Who is the founder of Hack Club?</span>
-              <span class="prompt-sub">Leadership, history &amp; vision</span>
-            </button>
-            <button class="prompt-card" data-prompt="Which YSWS is new right now?">
-              <span class="prompt-text">Which YSWS is new right now?</span>
-              <span class="prompt-sub">Active limited-time programs</span>
-            </button>
-            <button class="prompt-card" data-prompt="Are any YSWS hiring reviewers or fulfillers right now?">
-              <span class="prompt-text">Are any YSWS hiring reviewers or fulfillers?</span>
-              <span class="prompt-sub">Open roles from Slack bulletin</span>
-            </button>
-            <button class="prompt-card" data-prompt="Who made you?">
-              <span class="prompt-text">Who made Hacki?</span>
-              <span class="prompt-sub">Ketan Gupta (Slack &amp; email info)</span>
-            </button>
-          </div>
         </div>
 
         <!-- Messages stream -->

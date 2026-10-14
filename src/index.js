@@ -7,6 +7,7 @@ import { loadTeam, fetchTeam } from './scrapers/teamScraper.js';
 import { loadYSWS, fetchYSWS } from './scrapers/yswsScraper.js';
 import { initSlackCollector } from './slack/announcementsCollector.js';
 import { initSlackBot } from './slack/slackBot.js';
+import { authRouter } from './auth/hackclubAuth.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -16,11 +17,12 @@ const app = express();
 
 app.use(express.json());
 app.use(express.static(publicDir));
+app.use('/auth', authRouter);
 app.use('/api', apiRouter);
 
 // Fallback to index.html for SPA routes (Express 5 compatible)
 app.use((req, res, next) => {
-  if (req.method === 'GET' && !req.path.startsWith('/api')) {
+  if (req.method === 'GET' && !req.path.startsWith('/api') && !req.path.startsWith('/auth')) {
     return res.sendFile(path.join(publicDir, 'index.html'));
   }
   next();

@@ -363,13 +363,38 @@ document.addEventListener('DOMContentLoaded', () => {
 
   sendBtn.addEventListener('click', () => handleSend());
 
-  // Prompt Cards in Empty State
-  document.querySelectorAll('.prompt-card').forEach(card => {
-    card.addEventListener('click', () => {
-      const prompt = card.getAttribute('data-prompt');
-      if (prompt) handleSend(prompt);
-    });
-  });
+  // Auth state check
+  async function checkAuth() {
+    const authLoginBtn = document.getElementById('auth-login-btn');
+    const userProfileCard = document.getElementById('user-profile-card');
+    const userNameEl = document.getElementById('user-name');
+    const userSubEl = document.getElementById('user-sub');
+    const userAvatarEl = document.getElementById('user-avatar');
+
+    try {
+      const res = await fetch('/api/auth/me');
+      const data = await res.json();
+      if (data.ok && data.user) {
+        if (authLoginBtn) authLoginBtn.style.display = 'none';
+        if (userProfileCard) userProfileCard.style.display = 'flex';
+        if (userNameEl) userNameEl.textContent = data.user.name;
+        if (userSubEl) userSubEl.textContent = data.user.email || data.user.slackId || 'Hack Club Member';
+        if (userAvatarEl) {
+          if (data.user.avatar) {
+            userAvatarEl.innerHTML = `<img src="${data.user.avatar}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">`;
+          } else {
+            userAvatarEl.textContent = (data.user.name || 'HC').slice(0, 2).toUpperCase();
+          }
+        }
+      } else {
+        if (authLoginBtn) authLoginBtn.style.display = 'flex';
+        if (userProfileCard) userProfileCard.style.display = 'none';
+      }
+    } catch {
+      if (authLoginBtn) authLoginBtn.style.display = 'flex';
+      if (userProfileCard) userProfileCard.style.display = 'none';
+    }
+  }
 
   // Sidebar toggle
   sidebarOpenBtn.addEventListener('click', () => {
@@ -552,4 +577,5 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Init
   loadStoredChats();
+  checkAuth();
 });

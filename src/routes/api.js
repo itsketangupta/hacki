@@ -3,9 +3,16 @@ import { askHacki } from '../ai/hackiAgent.js';
 import { loadTeam, searchTeam, fetchTeam } from '../scrapers/teamScraper.js';
 import { loadYSWS, searchYSWS, getNewYSWS, getActiveYSWS, fetchYSWS } from '../scrapers/yswsScraper.js';
 import { loadAnnouncements, getHiringOpportunities, getRecentAnnouncements } from '../slack/announcementsCollector.js';
+import { getSessionUser } from '../auth/hackclubAuth.js';
 import { config } from '../config.js';
 
 export const apiRouter = express.Router();
+
+// Current authenticated user
+apiRouter.get('/auth/me', (req, res) => {
+  const user = getSessionUser(req);
+  res.json({ ok: true, user: user || null });
+});
 
 // Chat endpoint
 apiRouter.post('/chat', async (req, res) => {
