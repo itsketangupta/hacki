@@ -63,8 +63,15 @@ AI_MODEL=openai/gpt-4o-mini
 SLACK_BOT_TOKEN=xoxb-...
 SLACK_APP_TOKEN=xapp-...
 SLACK_NEWS_CHANNEL=C0C8T8Q8R9P
+SLACK_HACKI_CHANNEL=hacki
 ENABLE_SLACK_BOT=true
 ENABLE_SLACK_SYNC=true
+
+# Hack Club Auth on Nest
+HACKCLUB_CLIENT_ID=your-client-id
+HACKCLUB_CLIENT_SECRET=your-client-secret
+HACKCLUB_REDIRECT_URI=https://<your-username>.hackclub.app/auth/callback
+PUBLIC_BASE_URL=https://<your-username>.hackclub.app
 ```
 
 ---
@@ -121,8 +128,6 @@ caddy reload
 
 Now open `https://yourusername.hackclub.app` in your browser!
 
----
-
 ### Updating Hacki
 
 Whenever you make updates to Hacki:
@@ -133,3 +138,18 @@ git pull
 npm install
 pm2 restart hacki
 ```
+
+---
+
+### 8. Slack Bot Permissions for Auto-Invite to #hacki
+
+To enable Hacki to automatically invite members to the `#hacki` channel when they log in:
+
+1. Go to [api.slack.com/apps](https://api.slack.com/apps) and click your app.
+2. Under **OAuth & Permissions** &rarr; **Scopes** &rarr; **Bot Token Scopes**, make sure to add:
+   - `channels:write.invites` (Allows bot to invite users to public channels)
+   - `channels:read` & `channels:join` (Allows bot to find and join the channel)
+   - `chat:write` (Allows bot to post a welcome message)
+3. Click **Reinstall to Workspace** at the top of the OAuth page so the updated permissions take effect.
+4. Ensure the bot is added to your `#hacki` channel (`/invite @Hacki` in the channel).
+

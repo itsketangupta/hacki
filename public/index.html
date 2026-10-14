@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Hacki</title>
-  <link rel="icon" type="image/svg+xml" href="https://assets.hackclub.com/icon-rounded.svg">
+  <title>Hacki — The Hack Club AI Assistant</title>
+  <link rel="icon" type="image/png" href="hacki-logo.png">
   <link rel="stylesheet" href="style.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -13,15 +13,20 @@
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 </head>
 <body>
+  <!-- Hack Club Ribbon Flag (Top-Left, redirects to hackclub.com) -->
+  <a href="https://hackclub.com" target="_blank" rel="noopener noreferrer" class="hackclub-flag-link" title="Visit Hack Club">
+    <img src="hackclub-flag.svg" alt="Hack Club Flag">
+  </a>
+
   <div class="app-layout">
     <!-- Collapsible ChatGPT-style Sidebar -->
     <aside class="sidebar" id="sidebar">
       <div class="sidebar-top">
         <div class="sidebar-brand">
-          <a href="https://hackclub.com" target="_blank" rel="noopener noreferrer" class="hc-logo-link" title="Hack Club">
-            <img src="https://assets.hackclub.com/icon-rounded.svg" alt="Hack Club Logo" class="hc-logo">
-          </a>
-          <span class="sidebar-brand-name">Hacki</span>
+          <div class="sidebar-brand-left">
+            <img src="hacki-logo.png" alt="Hacki Mascot Logo" class="hacki-brand-logo">
+            <span class="sidebar-brand-name">Hacki</span>
+          </div>
           <button class="sidebar-toggle-btn" id="sidebar-close-btn" title="Close sidebar">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
           </button>
@@ -59,7 +64,7 @@
         <div class="auth-section" id="auth-section">
           <!-- Logged out state -->
           <a href="/auth/login" class="hc-auth-btn" id="auth-login-btn">
-            <img src="https://assets.hackclub.com/icon-rounded.svg" alt="HC" class="auth-btn-icon">
+            <img src="hackclub-flag.svg" alt="HC" class="auth-btn-icon">
             <span>Sign in with Hack Club</span>
           </a>
 
@@ -69,6 +74,10 @@
             <div class="user-details">
               <div class="user-name" id="user-name">Hack Clubber</div>
               <div class="user-sub" id="user-sub">Connected</div>
+              <div class="user-slack-tag" id="user-slack-tag" style="display: none;">
+                <span class="slack-dot"></span>
+                <span id="user-slack-channel-text">#hacki member</span>
+              </div>
             </div>
             <a href="/auth/logout" class="user-logout-btn" title="Sign out">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -95,13 +104,16 @@
           </button>
           
           <div class="model-badge">
-            <img src="https://assets.hackclub.com/flag-standalone.svg" alt="HC" class="model-flag">
+            <img src="hacki-logo.png" alt="Hacki" class="model-logo">
             <span class="model-title">Hacki</span>
-            <span class="model-version">4o-mini</span>
+            <span class="model-version">AI</span>
           </div>
         </div>
 
         <div class="topbar-right">
+          <button class="topbar-login-btn" id="topbar-login-btn" style="display: none;">
+            Sign in
+          </button>
           <button class="icon-button" id="new-chat-top-btn" title="New chat">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M12 20h9"/>
@@ -116,9 +128,10 @@
         <!-- Empty State (Shown only when chat is fresh, matches ChatGPT) -->
         <div class="empty-state" id="empty-state">
           <div class="empty-logo-wrap">
-            <img src="https://assets.hackclub.com/icon-rounded.svg" alt="Hack Club Logo" class="empty-hc-logo">
+            <img src="hacki-logo.png" alt="Hacki Mascot Logo" class="empty-hacki-logo">
           </div>
           <h2 class="empty-title">What can I help with today?</h2>
+          <p class="empty-desc">Ask about Hack Club YSWS programs, team members, or reviewer roles.</p>
         </div>
 
         <!-- Messages stream -->
@@ -151,10 +164,63 @@
         </div>
 
         <div class="disclaimer">
-          Hacki can make mistakes. Check verified Hack Club sources on Slack &amp; <a href="https://hackclub.com" target="_blank">hackclub.com</a>.
+          Hacki can make mistakes. Check verified Hack Club sources on Slack &amp; <a href="https://hackclub.com" target="_blank" rel="noopener noreferrer">hackclub.com</a>.
         </div>
       </div>
     </main>
+  </div>
+
+  <!-- Mandatory Welcome / Login Pop-Up Modal -->
+  <div class="auth-modal-backdrop" id="auth-modal-backdrop" style="display: none;">
+    <div class="auth-modal-card">
+      <button class="auth-modal-close" id="auth-modal-close-btn" title="Dismiss">&times;</button>
+      
+      <div class="auth-modal-header">
+        <div class="auth-modal-logo-wrapper">
+          <img src="hacki-logo.png" alt="Hacki Logo" class="auth-modal-logo">
+        </div>
+        <h2 class="auth-modal-title">Welcome to Hacki!</h2>
+        <p class="auth-modal-subtitle">Your Hack Club AI Assistant &amp; Community Companion</p>
+      </div>
+
+      <div class="auth-modal-features">
+        <div class="auth-feature-row">
+          <div class="auth-feature-icon">💬</div>
+          <div class="auth-feature-info">
+            <strong>Auto-join #hacki Slack Channel</strong>
+            <span>Signing in automatically adds your Slack ID to the <b>#hacki</b> channel on Hack Club Slack!</span>
+          </div>
+        </div>
+        <div class="auth-feature-row">
+          <div class="auth-feature-icon">🚀</div>
+          <div class="auth-feature-info">
+            <strong>YSWS Programs &amp; Grant Guidance</strong>
+            <span>Get live guidance on Crescent, Horizons, Macondo, hardware grants, and shipping rules.</span>
+          </div>
+        </div>
+        <div class="auth-feature-row">
+          <div class="auth-feature-icon">👥</div>
+          <div class="auth-feature-info">
+            <strong>Hack Club Team &amp; Reviewer Calls</strong>
+            <span>Find project maintainers, reviewer opportunities, stipends, and fulfillment roles.</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="auth-modal-actions">
+        <a href="/auth/login" class="auth-modal-login-btn">
+          <img src="hackclub-flag.svg" alt="" class="auth-modal-btn-flag">
+          <span>Sign in with Hack Club</span>
+        </a>
+        <button type="button" class="auth-modal-guest-btn" id="auth-modal-guest-btn">
+          Continue as Guest
+        </button>
+      </div>
+
+      <div class="auth-modal-footer">
+        Powered by <a href="https://hackclub.com" target="_blank" rel="noopener noreferrer">Hack Club</a> &bull; Connect with teenagers making cool stuff
+      </div>
+    </div>
   </div>
 
   <!-- Modal / Drawer for Team, YSWS, and Opportunities -->

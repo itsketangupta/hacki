@@ -363,6 +363,48 @@ document.addEventListener('DOMContentLoaded', () => {
 
   sendBtn.addEventListener('click', () => handleSend());
 
+  // Auth Modal Elements
+  const authModalBackdrop = document.getElementById('auth-modal-backdrop');
+  const authModalCloseBtn = document.getElementById('auth-modal-close-btn');
+  const authModalGuestBtn = document.getElementById('auth-modal-guest-btn');
+  const topbarLoginBtn = document.getElementById('topbar-login-btn');
+  const userSlackTag = document.getElementById('user-slack-tag');
+  const userSlackChannelText = document.getElementById('user-slack-channel-text');
+
+  function showAuthModal() {
+    if (authModalBackdrop) {
+      authModalBackdrop.style.display = 'flex';
+    }
+  }
+
+  function hideAuthModal() {
+    if (authModalBackdrop) {
+      authModalBackdrop.style.display = 'none';
+    }
+  }
+
+  if (authModalCloseBtn) {
+    authModalCloseBtn.addEventListener('click', hideAuthModal);
+  }
+
+  if (authModalGuestBtn) {
+    authModalGuestBtn.addEventListener('click', hideAuthModal);
+  }
+
+  if (authModalBackdrop) {
+    authModalBackdrop.addEventListener('click', (e) => {
+      if (e.target === authModalBackdrop) {
+        hideAuthModal();
+      }
+    });
+  }
+
+  if (topbarLoginBtn) {
+    topbarLoginBtn.addEventListener('click', () => {
+      showAuthModal();
+    });
+  }
+
   // Auth state check
   async function checkAuth() {
     const authLoginBtn = document.getElementById('auth-login-btn');
@@ -375,7 +417,10 @@ document.addEventListener('DOMContentLoaded', () => {
       const res = await fetch('/api/auth/me');
       const data = await res.json();
       if (data.ok && data.user) {
+        // User is logged in!
+        hideAuthModal();
         if (authLoginBtn) authLoginBtn.style.display = 'none';
+        if (topbarLoginBtn) topbarLoginBtn.style.display = 'none';
         if (userProfileCard) userProfileCard.style.display = 'flex';
         if (userNameEl) userNameEl.textContent = data.user.name;
         if (userSubEl) userSubEl.textContent = data.user.email || data.user.slackId || 'Hack Club Member';
@@ -386,13 +431,54 @@ document.addEventListener('DOMContentLoaded', () => {
             userAvatarEl.textContent = (data.user.name || 'HC').slice(0, 2).toUpperCase();
           }
         }
+
+        // Display Slack channel membership status
+        if (userSlackTag && userSlackChannelText) {
+          userSlackTag.style.display = 'inline-flex';
+          if (data.user.slackChannelJoined || data.user.slackChannelStatus === 'invited' || data.user.slackChannelStatus === 'already_in_channel') {
+            userSlackChannelText.textContent = '#hacki member 🟢';
+            userSlackTag.title = 'You are in the #hacki Slack channel!';
+            userSlackTag.classList.remove('clickable');
+            userSlackTag.onclick = null;
+          } else if (data.user.slackId) {
+            userSlackChannelText.textContent = 'Join #hacki channel 💬';
+            userSlackTag.title = 'Click to join the #hacki Slack channel';
+            userSlackTag.classList.add('clickable');
+            userSlackTag.onclick = async () => {
+              userSlackChannelText.textContent = 'Joining...';
+              try {
+                const joinRes = await fetch('/auth/join-slack', { method: 'POST' });
+                const joinData = await joinRes.json();
+                if (joinData.ok) {
+                  userSlackChannelText.textContent = '#hacki member 🟢';
+                  alert('🎉 Success! You have been added to the #hacki Slack channel!');
+                } else {
+                  userSlackChannelText.textContent = 'Join #hacki channel';
+                  alert(joinData.error || joinData.reason || 'Could not join channel. Ask an admin in Hack Club Slack.');
+                }
+              } catch {
+                userSlackChannelText.textContent = 'Join #hacki channel';
+              }
+            };
+          } else {
+            userSlackTag.style.display = 'none';
+          }
+        }
       } else {
+        // Not logged in or logged out -> Show pop-up on start of website!
+        showAuthModal();
         if (authLoginBtn) authLoginBtn.style.display = 'flex';
+        if (topbarLoginBtn) topbarLoginBtn.style.display = 'block';
         if (userProfileCard) userProfileCard.style.display = 'none';
+        if (userSlackTag) userSlackTag.style.display = 'none';
       }
     } catch {
+      // Failed to reach auth endpoint -> Prompt login pop-up
+      showAuthModal();
       if (authLoginBtn) authLoginBtn.style.display = 'flex';
+      if (topbarLoginBtn) topbarLoginBtn.style.display = 'block';
       if (userProfileCard) userProfileCard.style.display = 'none';
+      if (userSlackTag) userSlackTag.style.display = 'none';
     }
   }
 

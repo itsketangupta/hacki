@@ -23,6 +23,7 @@ export const config = {
   slackBotToken: process.env.SLACK_BOT_TOKEN || '',
   slackAppToken: process.env.SLACK_APP_TOKEN || '',
   slackNewsChannel: process.env.SLACK_NEWS_CHANNEL || '',
+  slackHackiChannel: process.env.SLACK_HACKI_CHANNEL || process.env.SLACK_NEWS_CHANNEL || 'hacki',
   enableSlackBot: process.env.ENABLE_SLACK_BOT !== 'false',
   enableSlackSync: process.env.ENABLE_SLACK_SYNC !== 'false',
   slackSyncIntervalMs: Number(process.env.SLACK_SYNC_INTERVAL_MS || 300000),

@@ -25,6 +25,16 @@
   box-sizing: border-box;
   margin: 0;
   padding: 0;
+  scrollbar-width: none !important; /* Firefox */
+  -ms-overflow-style: none !important; /* IE and Edge */
+}
+
+*::-webkit-scrollbar,
+::-webkit-scrollbar {
+  display: none !important; /* Chrome, Safari, Opera, Edge */
+  width: 0 !important;
+  height: 0 !important;
+  background: transparent !important;
 }
 
 body {
@@ -35,6 +45,8 @@ body {
   width: 100vw;
   overflow: hidden;
   -webkit-font-smoothing: antialiased;
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
 }
 
 /* App Layout */
@@ -43,6 +55,31 @@ body {
   height: 100%;
   width: 100%;
   position: relative;
+}
+
+/* ===================================================================
+   Hack Club Flag Banner (Top-Left, redirects to hackclub.com)
+   =================================================================== */
+.hackclub-flag-link {
+  position: fixed;
+  top: 0;
+  left: 14px;
+  z-index: 1000;
+  display: inline-block;
+  width: 78px;
+  transition: transform 0.22s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  transform-origin: top left;
+}
+
+.hackclub-flag-link:hover {
+  transform: rotate(-3deg) scale(1.06);
+}
+
+.hackclub-flag-link img {
+  width: 100%;
+  height: auto;
+  display: block;
+  filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.45));
 }
 
 /* ===================================================================
@@ -64,8 +101,9 @@ body {
   margin-left: -260px;
 }
 
+/* Give room for the hanging Hack Club flag */
 .sidebar-top {
-  padding: 12px;
+  padding: 56px 12px 12px 12px;
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -78,30 +116,34 @@ body {
   padding: 4px 6px;
 }
 
-.hc-logo-link {
+.sidebar-brand-left {
   display: flex;
   align-items: center;
-  text-decoration: none;
+  gap: 10px;
+  flex: 1;
 }
 
-.hc-logo {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  transition: transform 0.2s;
+.hacki-brand-logo {
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  object-fit: contain;
+  background: #ffffff;
+  padding: 2px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+  transition: transform 0.2s ease;
 }
 
-.hc-logo:hover {
-  transform: rotate(-8deg) scale(1.08);
+.hacki-brand-logo:hover {
+  transform: scale(1.08) rotate(-4deg);
 }
 
 .sidebar-brand-name {
-  font-size: 17px;
+  font-size: 18px;
   font-weight: 700;
   color: #fff;
   letter-spacing: -0.3px;
-  flex: 1;
-  margin-left: 10px;
 }
 
 .sidebar-toggle-btn {
@@ -366,12 +408,35 @@ body {
   justify-content: space-between;
   flex-shrink: 0;
   z-index: 10;
+  transition: padding-left 0.25s ease;
+}
+
+/* When sidebar is closed, push topbar-left over so it doesn't overlap the hanging flag */
+.sidebar.closed ~ .main-content .topbar-left {
+  margin-left: 82px;
 }
 
 .topbar-left, .topbar-right {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.topbar-login-btn {
+  background: var(--primary-hc);
+  color: #fff;
+  border: none;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 6px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 0.15s, transform 0.15s;
+}
+
+.topbar-login-btn:hover {
+  background: var(--primary-hc-hover);
+  transform: translateY(-1px);
 }
 
 .icon-button {
@@ -406,8 +471,13 @@ body {
   background-color: var(--bg-input);
 }
 
-.model-flag {
-  height: 18px;
+.model-logo {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  object-fit: contain;
+  background: #ffffff;
+  padding: 1px;
 }
 
 .model-title {
@@ -420,6 +490,9 @@ body {
   font-size: 11px;
   color: var(--text-muted);
   font-weight: 500;
+  background: rgba(255, 255, 255, 0.08);
+  padding: 2px 6px;
+  border-radius: 4px;
 }
 
 /* Conversation Container */
@@ -446,26 +519,43 @@ body {
 }
 
 .empty-logo-wrap {
-  width: 60px;
-  height: 60px;
+  width: 88px;
+  height: 88px;
   margin-bottom: 20px;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
-.empty-hc-logo {
-  width: 54px;
-  height: 54px;
-  border-radius: 50%;
-  box-shadow: 0 4px 20px rgba(236, 55, 80, 0.2);
+.empty-hacki-logo {
+  width: 84px;
+  height: 84px;
+  border-radius: 20px;
+  object-fit: contain;
+  background: #ffffff;
+  padding: 4px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), 0 0 24px rgba(236, 55, 80, 0.25);
+  transition: transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.empty-hacki-logo:hover {
+  transform: scale(1.08) rotate(-4deg);
 }
 
 .empty-title {
   font-size: 26px;
-  font-weight: 600;
+  font-weight: 700;
   color: #fff;
-  margin-bottom: 24px;
+  letter-spacing: -0.4px;
+  margin-bottom: 8px;
+}
+
+.empty-desc {
+  font-size: 14.5px;
+  color: var(--text-secondary);
+  max-width: 440px;
+  line-height: 1.5;
+  margin-bottom: 28px;
 }
 
 /* Messages List */
@@ -976,3 +1066,239 @@ body {
     grid-template-columns: 1fr;
   }
 }
+
+/* ===================================================================
+   Welcome / Mandatory Login Pop-Up Modal
+   =================================================================== */
+.auth-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.78);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  padding: 20px;
+  animation: authFadeIn 0.25s ease-out;
+}
+
+@keyframes authFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.auth-modal-card {
+  background: linear-gradient(180deg, #222222 0%, #161616 100%);
+  border: 1px solid rgba(236, 55, 80, 0.4);
+  border-radius: 22px;
+  width: 100%;
+  max-width: 500px;
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.8), 0 0 45px rgba(236, 55, 80, 0.18);
+  position: relative;
+  overflow: hidden;
+  padding: 34px 30px 26px;
+  animation: authCardPop 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes authCardPop {
+  from {
+    transform: scale(0.92) translateY(14px);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1) translateY(0);
+    opacity: 1;
+  }
+}
+
+.auth-modal-close {
+  position: absolute;
+  top: 14px;
+  right: 18px;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 26px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: color 0.15s, background-color 0.15s;
+}
+
+.auth-modal-close:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.auth-modal-header {
+  text-align: center;
+  margin-bottom: 22px;
+}
+
+.auth-modal-logo-wrapper {
+  margin: 0 auto 14px;
+  width: 90px;
+  height: 90px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.auth-modal-logo {
+  width: 88px;
+  height: 88px;
+  border-radius: 20px;
+  background: #ffffff;
+  object-fit: contain;
+  padding: 4px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6), 0 0 25px rgba(236, 55, 80, 0.3);
+}
+
+.auth-modal-title {
+  font-size: 25px;
+  font-weight: 700;
+  color: #ffffff;
+  letter-spacing: -0.4px;
+}
+
+.auth-modal-subtitle {
+  font-size: 13.5px;
+  color: var(--text-secondary);
+  margin-top: 5px;
+}
+
+.auth-modal-features {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 24px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border-subtle);
+  border-radius: 14px;
+  padding: 16px;
+}
+
+.auth-feature-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.auth-feature-icon {
+  font-size: 19px;
+  line-height: 1.2;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.auth-feature-info strong {
+  display: block;
+  font-size: 13.5px;
+  color: #fff;
+  margin-bottom: 2px;
+}
+
+.auth-feature-info span {
+  display: block;
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.45;
+}
+
+.auth-feature-info b {
+  color: #ff8c9c;
+}
+
+.auth-modal-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.auth-modal-login-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: var(--primary-hc);
+  color: #ffffff;
+  text-decoration: none;
+  font-size: 15px;
+  font-weight: 600;
+  padding: 13px 18px;
+  border-radius: 12px;
+  box-shadow: 0 4px 18px rgba(236, 55, 80, 0.35);
+  transition: background-color 0.15s, transform 0.15s, box-shadow 0.15s;
+}
+
+.auth-modal-login-btn:hover {
+  background: var(--primary-hc-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 24px rgba(236, 55, 80, 0.5);
+}
+
+.auth-modal-btn-flag {
+  width: 22px;
+  height: 22px;
+}
+
+.auth-modal-guest-btn {
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  padding: 11px 16px;
+  border-radius: 12px;
+  font-size: 13.5px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.auth-modal-guest-btn:hover {
+  background: var(--bg-sidebar-hover);
+  color: #fff;
+  border-color: var(--border-hover);
+}
+
+.auth-modal-footer {
+  text-align: center;
+  font-size: 11.5px;
+  color: var(--text-muted);
+  margin-top: 16px;
+}
+
+.auth-modal-footer a {
+  color: var(--primary-hc);
+  text-decoration: none;
+}
+
+.auth-modal-footer a:hover {
+  text-decoration: underline;
+}
+
+/* User Slack Tag in Sidebar Profile */
+.user-slack-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10.5px;
+  color: #33d6a6;
+  margin-top: 3px;
+  cursor: pointer;
+}
+
+.user-slack-tag.clickable:hover {
+  text-decoration: underline;
+}
+
+.slack-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: #33d6a6;
+  box-shadow: 0 0 6px rgba(51, 214, 166, 0.8);
+}
+

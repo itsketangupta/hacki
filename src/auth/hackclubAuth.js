@@ -3,6 +3,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { config } from '../config.js';
+import { addUserToHackiChannel } from '../slack/slackChannelManager.js';
 
 export const authRouter = express.Router();
 
@@ -119,8 +120,29 @@ authRouter.get('/callback', async (req, res) => {
       slackId,
       slackUrl: slackId ? `https://hackclub.enterprise.slack.com/team/${slackId}` : null,
       avatar: identity.avatar || null,
-      lastLoginAt: new Date().toISOString()
+      lastLoginAt: new Date().toISOString(),
+      slackChannelStatus: 'pending'
     };
+
+    // Auto-add to Hacki Slack channel using their Slack ID
+    if (slackId || email) {
+      try {
+        console.log(`[Auth] Auto-adding logged in user ${name} (${slackId || email}) to Slack channel...`);
+        const slackResult = await addUserToHackiChannel({
+          slackId,
+          email,
+          name
+        });
+        user.slackChannelStatus = slackResult.status || (slackResult.ok ? 'invited' : 'failed');
+        user.slackChannelJoined = Boolean(slackResult.ok);
+        if (slackResult.channelId) {
+          user.slackChannelId = slackResult.channelId;
+        }
+      } catch (slackErr) {
+        console.warn('[Auth] Slack auto-invite error:', slackErr.message);
+        user.slackChannelStatus = 'error';
+      }
+    }
 
     const existingIdx = users.findIndex(u => u.id === id);
     if (existingIdx >= 0) {
@@ -151,7 +173,34 @@ authRouter.get('/callback', async (req, res) => {
   }
 });
 
-// 3. Logout
+// 3. Re-trigger Slack Channel Join
+authRouter.post('/join-slack', async (req, res) => {
+  const user = getSessionUser(req);
+  if (!user) {
+    return res.status(401).json({ ok: false, error: 'Please sign in first.' });
+  }
+
+  try {
+    const result = await addUserToHackiChannel({
+      slackId: user.slackId,
+      email: user.email,
+      name: user.name
+    });
+
+    if (result.ok) {
+      user.slackChannelJoined = true;
+      user.slackChannelStatus = result.status;
+      if (result.channelId) user.slackChannelId = result.channelId;
+      await saveUsers();
+    }
+
+    res.json({ ok: result.ok, ...result });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// 4. Logout
 authRouter.get('/logout', (req, res) => {
   const cookie = req.headers.cookie;
   if (cookie) {
@@ -161,3 +210,4 @@ authRouter.get('/logout', (req, res) => {
   res.setHeader('Set-Cookie', 'hacki_session=; HttpOnly; Path=/; SameSite=Lax; Max-Age=0');
   res.redirect('/');
 });
+
