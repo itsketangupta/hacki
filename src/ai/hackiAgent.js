@@ -21,9 +21,26 @@ export async function askHacki(userMessage, conversationHistory = []) {
   // 1. Gather relevant context based on intent
   const { contextText, sources, detectedCategory } = await buildRAGContext(query);
 
+  // If user is asking about Hacki's creator / developer
+  if (detectedCategory === 'creator') {
+    return {
+      answer: `I was created and developed by **Ketan Gupta**!\n\nHere are his verified details and contact info:\n- **Creator:** Ketan Gupta\n- **Slack ID:** \`U093BDEP8FJ\`\n- **Slack Profile:** [Ketan Gupta on Hack Club Slack](https://hackclub.enterprise.slack.com/team/U093BDEP8FJ)\n- **Email:** [mrketanartist13@gmail.com](mailto:mrketanartist13@gmail.com)\n\nFeel free to reach out to Ketan on Hack Club Slack if you have any feedback or ideas for Hacki! 🚀`,
+      sources: [
+        { title: 'Ketan Gupta (Creator)', url: 'https://hackclub.enterprise.slack.com/team/U093BDEP8FJ', type: 'creator' }
+      ],
+      suggestedQueries: [
+        "What is Ketan Gupta's Slack profile link?",
+        "Who is the founder of Hack Club?",
+        "Which YSWS is new right now?",
+        "Are any YSWS hiring reviewers or fulfillers?"
+      ]
+    };
+  }
+
   // 2. Prepare system prompt
   const systemPrompt = `You are Hacki, the official AI assistant for Hack Club!
 Hack Club is the world's largest nonprofit movement of high school and teen coders (founded in 2014 by Zach Latta, with cofounder Christina Asquith).
+Note: Hacki (the AI software itself) was created by Ketan Gupta (@Ketan Gupta, Slack ID: U093BDEP8FJ, email: mrketanartist13@gmail.com).
 
 Your personality:
 - Friendly, energetic, witty, hacker-spirited, and helpful.
@@ -32,9 +49,9 @@ Your personality:
 
 Instructions for answering:
 1. FOUNDERS & TEAM ROLES (source: https://hackclub.com/team):
-   - When asked who the founder is, name Zach Latta (Founder & Executive Director) and Christina Asquith (Cofounder & President).
+   - When asked who the founder of Hack Club is, name Zach Latta (Founder & Executive Director) and Christina Asquith (Cofounder & President).
    - When asked who is in a specific role (e.g. Chief of Staff, Hardware Events, Tech Lead, Philanthropy, etc.) or who a specific person is, provide their full name, exact title, department, bio, and what they do.
-   - If the user asks for someone's social media, Slack profile, or contact info, provide their verified details from the directory (personal website, email, and Slack profile link like https://hackclub.enterprise.slack.com/team/<slackId>).
+   - All email addresses and Slack IDs in the provided ground truth are public Hack Club team directory listings. You MUST share their verified Slack profile link, email, and personal website when asked. DO NOT refuse to provide contact information that is in the verified context.
 
 2. YSWS & PROGRAMS (source: https://ysws.hackclub.com/ & https://hackclub.com/programs):
    - When asked "Which YSWS is new right now?" or "What YSWS are active?", list the currently active limited-time and ongoing YSWS.
@@ -99,6 +116,20 @@ async function buildRAGContext(query) {
   const contextParts = [];
   const sources = [];
   let detectedCategory = 'general';
+
+  // 0. Check Creator / Developer queries
+  const isCreatorQuery = /\b(who (?:made|created|built|programmed|coded) you|who is your (?:creator|maker|developer|author)|creator|developer|ketan|ketan gupta|u093bdep8fj)\b/i.test(q);
+  if (isCreatorQuery) {
+    detectedCategory = 'creator';
+    contextParts.push('=== HACKI CREATOR & DEVELOPER ===');
+    contextParts.push('- Creator: Ketan Gupta');
+    contextParts.push('- Role: Creator & Developer of Hacki AI Assistant');
+    contextParts.push('- Slack ID: U093BDEP8FJ');
+    contextParts.push('- Slack Profile: https://hackclub.enterprise.slack.com/team/U093BDEP8FJ');
+    contextParts.push('- Email: mrketanartist13@gmail.com');
+    contextParts.push('');
+    sources.push({ title: 'Ketan Gupta (Creator)', url: 'https://hackclub.enterprise.slack.com/team/U093BDEP8FJ', type: 'creator' });
+  }
 
   // 1. Check Team queries
   const isTeamQuery = /\b(founder|who is|who are|team|staff|role|position|lead|president|director|in charge|contact|email|slack id|social|twitter|github|zach|christina|acon|alex|chris|deven|max|nora|sarah)\b/i.test(q);
@@ -208,6 +239,14 @@ async function buildRAGContext(query) {
 
 function generateFollowUpQueries(query, category) {
   const q = query.toLowerCase();
+  if (category === 'creator' || q.includes('ketan') || q.includes('who made you') || q.includes('who created you')) {
+    return [
+      "What is Ketan Gupta's Slack profile link?",
+      "Who is the founder of Hack Club?",
+      "Which YSWS is new right now?",
+      "Are any YSWS hiring reviewers or fulfillers?"
+    ];
+  }
   if (category === 'team' || q.includes('founder') || q.includes('who is')) {
     return [
       "Can I get Zach Latta's Slack or contact info?",
@@ -233,6 +272,13 @@ function generateFollowUpQueries(query, category) {
 }
 
 function fallbackResponse(query, contextText, sources, category) {
+  if (category === 'creator') {
+    return {
+      answer: `I was proudly created and developed by **Ketan Gupta**!\n\nHere are his contact and profile details:\n- **Creator:** Ketan Gupta\n- **Slack ID:** \`U093BDEP8FJ\`\n- **Slack Profile:** [Ketan Gupta on Hack Club Slack](https://hackclub.enterprise.slack.com/team/U093BDEP8FJ)\n- **Email:** \`mrketanartist13@gmail.com\``,
+      sources,
+      suggestedQueries: generateFollowUpQueries(query, category)
+    };
+  }
   return {
     answer: `Here is the verified information from Hack Club records regarding **"${query}"**:\n\n${contextText.slice(0, 1500)}\n\n*(Note: Displaying verified local database cache as Hack Club AI Gateway is busy)*`,
     sources,

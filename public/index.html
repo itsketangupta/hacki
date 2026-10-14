@@ -3,121 +3,171 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Hacki — Hack Club AI Assistant</title>
+  <title>Hacki</title>
   <link rel="icon" type="image/svg+xml" href="https://assets.hackclub.com/icon-rounded.svg">
   <link rel="stylesheet" href="style.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Phantom+Sans:wght@400;500;700;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
   <!-- Markdown parser -->
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 </head>
 <body>
-  <!-- Top Navigation Bar -->
-  <header class="navbar">
-    <div class="nav-brand">
-      <a href="https://hackclub.com" target="_blank" rel="noopener noreferrer" class="flag-link" title="Visit Hack Club">
-        <img src="https://assets.hackclub.com/flag-standalone.svg" alt="Hack Club Flag" class="hc-flag">
-      </a>
-      <div class="brand-info">
-        <div class="brand-title">
-          <span class="brand-name">Hacki</span>
-          <span class="brand-badge">AI Assistant</span>
-        </div>
-        <span class="brand-sub">Trained on Hack Club Team, YSWS & Slack Happenings</span>
-      </div>
-    </div>
-
-    <!-- Live Status Indicators -->
-    <div class="nav-stats">
-      <div class="stat-pill" id="stat-team">
-        <span class="status-dot"></span>
-        <span class="stat-text"><strong id="team-count">145</strong> Team Members</span>
-      </div>
-      <div class="stat-pill" id="stat-ysws">
-        <span class="status-dot"></span>
-        <span class="stat-text"><strong id="ysws-count">26</strong> Active YSWS</span>
-      </div>
-      <div class="stat-pill" id="stat-slack">
-        <span class="status-dot"></span>
-        <span class="stat-text">Slack Synced</span>
-      </div>
-    </div>
-
-    <!-- Quick Tool Buttons -->
-    <div class="nav-actions">
-      <button class="nav-btn" id="open-team-btn" title="View Team Directory">👥 Team</button>
-      <button class="nav-btn" id="open-ysws-btn" title="View Active YSWS Catalog">🚀 YSWS</button>
-      <button class="nav-btn" id="open-opps-btn" title="View Reviewer / Fulfiller Calls">📢 Opportunities</button>
-      <button class="nav-btn icon-btn" id="sync-data-btn" title="Force Sync Data">🔄</button>
-    </div>
-  </header>
-
-  <!-- Main Container -->
-  <main class="chat-container">
-    <!-- Messages Scroll Area -->
-    <div class="chat-messages" id="chat-messages">
-      <!-- Welcome Hero Card -->
-      <div class="welcome-hero">
-        <div class="hero-avatar">🦖</div>
-        <h1>Meet Hacki!</h1>
-        <p class="hero-desc">
-          Your friendly AI guide to Hack Club. Ask about <strong>founders & team members</strong>, 
-          <strong>new & active YSWS programs</strong>, or <strong>who is hiring reviewers and fulfillers</strong> in Slack!
-        </p>
-
-        <!-- Prompt suggestions -->
-        <div class="quick-prompts">
-          <button class="prompt-chip" data-prompt="Who is the founder of Hack Club?">
-            👑 Who is the founder?
-          </button>
-          <button class="prompt-chip" data-prompt="Which YSWS is new right now?">
-            ✨ Which YSWS is new right now?
-          </button>
-          <button class="prompt-chip" data-prompt="Are any YSWS hiring reviewers or fulfillers right now?">
-            💼 Who is hiring reviewers or fulfillers?
-          </button>
-          <button class="prompt-chip" data-prompt="Can I get Chris Walker's Slack and contact info?">
-            👤 Chris Walker's contact & Slack info
-          </button>
-          <button class="prompt-chip" data-prompt="Who is in charge of Hardware Events at Hack Club?">
-            🛠️ Who leads Hardware Events?
-          </button>
-          <button class="prompt-chip" data-prompt="What active grants or hardware programs exist right now?">
-            🎁 Active grants & perks
+  <div class="app-layout">
+    <!-- Collapsible ChatGPT-style Sidebar -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-top">
+        <div class="sidebar-brand">
+          <a href="https://hackclub.com" target="_blank" rel="noopener noreferrer" class="hc-logo-link" title="Hack Club">
+            <img src="https://assets.hackclub.com/icon-rounded.svg" alt="Hack Club Logo" class="hc-logo">
+          </a>
+          <span class="sidebar-brand-name">Hacki</span>
+          <button class="sidebar-toggle-btn" id="sidebar-close-btn" title="Close sidebar">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
           </button>
         </div>
-      </div>
-    </div>
 
-    <!-- Input Footer Bar -->
-    <footer class="chat-input-area">
-      <div class="input-card">
-        <textarea
-          id="user-input"
-          placeholder="Ask Hacki anything about Hack Club (e.g. 'Who is Deven Jadhav?', 'What is Crescent YSWS?')..."
-          rows="1"
-          autofocus
-        ></textarea>
-        <button id="send-btn" class="send-button" title="Send (Enter)">
-          <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
-            <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+        <button class="new-chat-btn" id="new-chat-btn">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 5v14M5 12h14"/>
           </svg>
+          <span>New chat</span>
         </button>
       </div>
-      <div class="input-footnote">
-        <span>Powered by <a href="https://ai.hackclub.com" target="_blank">Hack Club AI</a> &amp; real-time Slack Bulletin sync</span>
-        <span>Hosted for Hack Clubbers</span>
+
+      <!-- Chat History List -->
+      <div class="sidebar-chats" id="chat-history-list">
+        <!-- Rendered dynamically -->
       </div>
-    </footer>
-  </main>
+
+      <!-- Bottom Nav Shortcuts -->
+      <div class="sidebar-bottom">
+        <button class="sidebar-nav-item" id="sidebar-team-btn">
+          <span class="nav-icon">👥</span>
+          <span>Team Directory</span>
+        </button>
+        <button class="sidebar-nav-item" id="sidebar-ysws-btn">
+          <span class="nav-icon">🚀</span>
+          <span>YSWS Programs</span>
+        </button>
+        <button class="sidebar-nav-item" id="sidebar-opps-btn">
+          <span class="nav-icon">📢</span>
+          <span>Slack Opportunities</span>
+        </button>
+
+        <!-- Creator Profile Card -->
+        <a href="https://hackclub.enterprise.slack.com/team/U093BDEP8FJ" target="_blank" rel="noopener noreferrer" class="creator-profile-pill" title="Created by Ketan Gupta">
+          <div class="creator-avatar">KG</div>
+          <div class="creator-info">
+            <div class="creator-name">Ketan Gupta</div>
+            <div class="creator-sub">Creator of Hacki &bull; U093BDEP8FJ</div>
+          </div>
+        </a>
+      </div>
+    </aside>
+
+    <!-- Main Chat Workspace -->
+    <main class="main-content">
+      <!-- Top Minimal Header Bar -->
+      <header class="topbar">
+        <div class="topbar-left">
+          <button class="icon-button" id="sidebar-open-btn" title="Open sidebar">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+              <line x1="9" y1="3" x2="9" y2="21"/>
+            </svg>
+          </button>
+          
+          <div class="model-badge">
+            <img src="https://assets.hackclub.com/flag-standalone.svg" alt="HC" class="model-flag">
+            <span class="model-title">Hacki</span>
+            <span class="model-version">4o-mini</span>
+          </div>
+        </div>
+
+        <div class="topbar-right">
+          <button class="icon-button" id="new-chat-top-btn" title="New chat">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 20h9"/>
+              <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+            </svg>
+          </button>
+        </div>
+      </header>
+
+      <!-- Scrollable Conversation View -->
+      <div class="conversation-container" id="conversation-container">
+        <!-- Empty State (Shown only when chat is fresh, matches ChatGPT) -->
+        <div class="empty-state" id="empty-state">
+          <div class="empty-logo-wrap">
+            <img src="https://assets.hackclub.com/icon-rounded.svg" alt="Hack Club Logo" class="empty-hc-logo">
+          </div>
+          <h2 class="empty-title">What can I help with today?</h2>
+
+          <div class="prompt-grid">
+            <button class="prompt-card" data-prompt="Who is the founder of Hack Club?">
+              <span class="prompt-text">Who is the founder of Hack Club?</span>
+              <span class="prompt-sub">Leadership, history &amp; vision</span>
+            </button>
+            <button class="prompt-card" data-prompt="Which YSWS is new right now?">
+              <span class="prompt-text">Which YSWS is new right now?</span>
+              <span class="prompt-sub">Active limited-time programs</span>
+            </button>
+            <button class="prompt-card" data-prompt="Are any YSWS hiring reviewers or fulfillers right now?">
+              <span class="prompt-text">Are any YSWS hiring reviewers or fulfillers?</span>
+              <span class="prompt-sub">Open roles from Slack bulletin</span>
+            </button>
+            <button class="prompt-card" data-prompt="Who made you?">
+              <span class="prompt-text">Who made Hacki?</span>
+              <span class="prompt-sub">Ketan Gupta (Slack &amp; email info)</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Messages stream -->
+        <div class="messages-list" id="messages-list"></div>
+      </div>
+
+      <!-- ChatGPT-Style Floating Bottom Input Bar -->
+      <div class="input-container">
+        <div class="input-box">
+          <button class="tools-btn" id="quick-tools-btn" title="Browse directories">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="12" y1="5" x2="12" y2="19"/>
+              <line x1="5" y1="12" x2="19" y2="12"/>
+            </svg>
+          </button>
+
+          <textarea
+            id="chat-input"
+            rows="1"
+            placeholder="Message Hacki..."
+            autofocus
+          ></textarea>
+
+          <button class="send-btn" id="send-btn" disabled title="Send message">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="12" y1="19" x2="12" y2="5"/>
+              <polyline points="5 12 12 5 19 12"/>
+            </svg>
+          </button>
+        </div>
+
+        <div class="disclaimer">
+          Hacki can make mistakes. Check verified Hack Club sources on Slack &amp; <a href="https://hackclub.com" target="_blank">hackclub.com</a>.
+        </div>
+      </div>
+    </main>
+  </div>
 
   <!-- Modal / Drawer for Team, YSWS, and Opportunities -->
   <div class="modal-backdrop" id="modal-backdrop">
     <div class="modal-card">
       <div class="modal-header">
-        <h2 id="modal-title">Directory</h2>
-        <button class="modal-close" id="modal-close-btn">&times;</button>
+        <h3 id="modal-title">Directory</h3>
+        <button class="modal-close-btn" id="modal-close-btn">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+        </button>
       </div>
       <div class="modal-search-bar">
         <input type="text" id="modal-search-input" placeholder="Search...">
