@@ -1,7 +1,7 @@
 {
-  "name": "hackwire",
+  "name": "hacki",
   "version": "1.0.0",
-  "description": "Hackwire — The Hack Club AI Assistant for Team, YSWS, and Slack Opportunities",
+  "description": "Hacki — The Hack Club AI Assistant for Team, YSWS, and Slack Opportunities",
   "private": true,
   "type": "module",
   "scripts": {

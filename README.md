@@ -1,12 +1,12 @@
-# 🦖 Hackwire — Hack Club AI Assistant
+# 🦖 Hacki — Hack Club AI Assistant
 
-**Hackwire** is an AI assistant tailored specifically for the Hack Club community. It provides answers to questions about:
+**Hacki** is an AI assistant tailored specifically for the Hack Club community. It provides answers to questions about:
 
 - 👑 **Leadership & Team Directory:** Who the founders are (Zach Latta, Christina Asquith), who is in specific roles (e.g. Chief of Staff, Hardware Lead, Philanthropy, HCB Operations), bios, contact emails, and verified Slack profiles sourced directly from [`https://hackclub.com/team`](https://hackclub.com/team).
 - 🚀 **YSWS Programs:** What's new right now, active programs, deadlines, requirements, and dedicated Slack channels sourced from [`https://ysws.hackclub.com/`](https://ysws.hackclub.com/) and [`https://hackclub.com/programs`](https://hackclub.com/programs).
 - 📢 **Slack Bulletin & Opportunities:** Who is currently hiring reviewers or fulfillers, open roles, grant drops, and announcement highlights sourced from public Slack bulletin channels (`#phantom-bulletin`, `#crescent-bulletin`, `#horizons-bulletin`, `#happenings`, `#ysws-ads`).
 - 🤖 **Hack Club AI Gateway:** Powered by the free Hack Club AI endpoint (`https://ai.hackclub.com/proxy/v1`).
-- 💬 **Slack Bot Mode:** Can answer questions directly inside Slack when mentioned (`@Hackwire <question>`) or in direct messages, and automatically invites logged-in members to `#hackwire`.
+- 💬 **Slack Bot Mode:** Can answer questions directly inside Slack when mentioned (`@Hacki <question>`) or in direct messages, and automatically invites logged-in members to `#hacki`.
 - 🌐 **Web Interface & Directory:** Single-page web app with prompt suggestions, markdown formatting, source citations, and interactive directories.
 
 ---
@@ -57,9 +57,9 @@ Detailed deployment instructions for Hack Club's Nest Linux server are available
 
 Quick summary:
 ```bash
-ssh username@nest.hackclub.app
-git clone https://github.com/itsketangupta/hackwire.git
-cd hackwire
+ssh username@hackclub.app
+git clone https://github.com/itsketangupta/hackwire.git hacki
+cd hacki
 npm install
 pm2 start ecosystem.config.cjs
 ```
@@ -69,7 +69,7 @@ pm2 start ecosystem.config.cjs
 ## 📁 Project Structure
 
 ```
-hackwire/
+hacki/
 ├── DEPLOY_NEST.md          # Guide for hosting on hackclub.app (Nest)
 ├── ecosystem.config.cjs    # PM2 production configuration
 ├── package.json
@@ -83,7 +83,7 @@ hackwire/
 │   ├── index.html          # Web chat UI
 │   ├── style.css           # Hack Club aesthetic styles
 │   ├── app.js             # Interactive frontend client
-│   └── hackwire-logo.png  # Mascot logo
+│   └── hacki-logo.png     # Dinosaur mascot logo with "Hacki"
 └── src/
     ├── config.js           # Configuration loader
     ├── index.js            # Express server entry point
@@ -95,7 +95,7 @@ hackwire/
     ├── slack/
     │   ├── announcementsCollector.js # Slack bulletin channel collector
     │   ├── slackBot.js     # Slack bot mention and DM responder
-    │   └── slackChannelManager.js    # #hackwire auto-invite manager
+    │   └── slackChannelManager.js    # #hacki auto-invite manager
     ├── routes/
     │   └── api.js          # REST API endpoints
     └── scripts/

@@ -1,30 +1,30 @@
-# Deploying Hackwire to Hack Club Nest (hackclub.app)
+# Deploying Hacki to Hack Club Nest (hackclub.app)
 
-**Hack Club Nest** (`nest.hackclub.app`) is the community Linux server where Hack Club members can host bots, websites, and APIs.
+**Hack Club Nest** (`nest.hackclub.app` / `hackclub.app`) is the community Linux server where Hack Club members can host bots, websites, and APIs.
 
-Follow these steps to deploy Hackwire on Nest:
+Follow these steps to deploy Hacki on Nest:
 
 ---
 
 ### 1. Connect to your Nest account via SSH
 
-Open PowerShell or terminal and SSH into Nest using your Hack Club username:
+Open PowerShell or terminal and SSH into Nest using your username:
 
 ```bash
-ssh <your-username>@nest.hackclub.app
+ssh <your-username>@hackclub.app
 ```
 
-*(If you ran `rm -rf ~/* ~/.*`, your home directory is clean. If needed, you can re-login or run `source /etc/profile` to restore standard shell environment).*
+*(If you ever see `disconnect 11` after running `rm -rf`, delete and re-create your container in `hackclub.app/dashboard` for a clean slate).*
 
 ---
 
-### 2. Clone Hackwire onto Nest
+### 2. Clone Hacki onto Nest
 
-Clone the Hackwire repository from GitHub:
+Clone the repository from GitHub:
 
 ```bash
-git clone https://github.com/itsketangupta/hackwire.git
-cd hackwire
+git clone https://github.com/itsketangupta/hackwire.git hacki
+cd hacki
 ```
 
 ---
@@ -61,7 +61,7 @@ AI_MODEL=openai/gpt-4o-mini
 SLACK_BOT_TOKEN=xoxb-your-bot-token
 SLACK_APP_TOKEN=xapp-your-app-token
 SLACK_NEWS_CHANNEL=C0C8T8Q8R9P
-SLACK_HACKWIRE_CHANNEL=hackwire
+SLACK_HACKI_CHANNEL=hacki
 
 # Slack Features
 ENABLE_SLACK_BOT=true
@@ -94,17 +94,17 @@ You should see:
 
 ### 6. Run with PM2 (Persistent Background Process)
 
-Start Hackwire in the background with PM2:
+Start Hacki in the background with PM2:
 
 ```bash
-# Start Hackwire
+# Start Hacki
 pm2 start ecosystem.config.cjs
 
 # Check status
 pm2 status
 
 # View live logs
-pm2 logs hackwire
+pm2 logs hacki
 
 # Ensure PM2 starts on server reboot
 pm2 save
@@ -114,7 +114,7 @@ pm2 save
 
 ### 7. Expose via Caddy on Nest
 
-To route `https://<your-username>.hackclub.app` to your Hackwire instance running on port 3000:
+To route `https://<your-username>.hackclub.app` to your Hacki instance running on port 3000:
 
 1. Check your Caddy directory:
 ```bash
@@ -132,13 +132,12 @@ mkdir -p ~/.caddy
 ```bash
 caddy reload
 ```
-*(Or if Nest uses system caddy service, check `/etc/caddy/Caddyfile` or user caddy configuration).*
 
 ---
 
-### 8. Slack Bot Permissions for Auto-Invite to #hackwire
+### 8. Slack Bot Permissions for Auto-Invite to #hacki
 
-To enable Hackwire to automatically invite members to the `#hackwire` channel when they log in:
+To enable Hacki to automatically invite members to the `#hacki` channel when they log in:
 
 1. Go to [api.slack.com/apps](https://api.slack.com/apps) and click your app.
 2. Under **OAuth & Permissions** &rarr; **Scopes** &rarr; **Bot Token Scopes**, make sure to add:
@@ -146,17 +145,17 @@ To enable Hackwire to automatically invite members to the `#hackwire` channel wh
    - `channels:read` & `channels:join` (Allows bot to find and join the channel)
    - `chat:write` (Allows bot to post a welcome message)
 3. Click **Reinstall to Workspace** at the top of the OAuth page so the updated permissions take effect.
-4. Ensure the bot is added to your `#hackwire` channel (`/invite @Hackwire` or `/invite @Hacki` in the channel).
+4. Ensure the bot is added to your `#hacki` channel (`/invite @Hacki` in the channel).
 
 ---
 
-### 9. Updating Hackwire
+### 9. Updating Hacki
 
-Whenever you push changes from your laptop to GitHub:
+Whenever you push changes from your computer to GitHub:
 
 ```bash
-cd ~/hackwire
+cd ~/hacki
 git pull
 npm install
-pm2 restart hackwire
+pm2 restart hacki
 ```

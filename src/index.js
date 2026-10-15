@@ -31,26 +31,26 @@ app.use((req, res, next) => {
 async function start() {
   console.log(`
   ======================================================
-   _    _            _               _          
-  | |  | |          | |             (_)         
-  | |__| | __ _  ___| | ____      ___ _ __ ___  
-  |  __  |/ _\` |/ __| |/ /\\ \\ /\\ / / | '__/ _ \\ 
-  | |  | | (_| | (__|   <  \\ V  V /| | | |  __/ 
-  |_|  |_|\\__,_|\\___|_|\\_\\  \\_/\\_/ |_|_|  \\___| 
+     _    _            _    _ 
+    | |  | |          | |  (_)
+    | |__| | __ _  ___| | ___ 
+    |  __  |/ _\` |/ __| |/ / |
+    | |  | | (_| | (__|   <| |
+    |_|  |_|\__,_|\___|_|\_\_|
     
-    Hackwire — Hack Club AI Assistant (Team, YSWS & Opps)
+    Hacki — Hack Club AI Assistant (Team, YSWS & Opps)
   ======================================================
   `);
 
   // 1. Warm-up and load data
-  console.log('[Hackwire] Initializing data sources...');
+  console.log('[Hacki] Initializing data sources...');
   try {
     await Promise.all([
       loadTeam(),
       loadYSWS()
     ]);
   } catch (err) {
-    console.warn(`[Hackwire] Data load notice: ${err.message}`);
+    console.warn(`[Hacki] Data load notice: ${err.message}`);
   }
 
   // 2. Initialize Slack collector & bot
@@ -59,19 +59,19 @@ async function start() {
 
   // 3. Start Express server
   const server = app.listen(config.port, '0.0.0.0', () => {
-    console.log(`[Hackwire] Server is live at http://localhost:${config.port}`);
-    console.log(`[Hackwire] Ready to answer questions about Hack Club!`);
+    console.log(`[Hacki] Server is live at http://localhost:${config.port}`);
+    console.log(`[Hacki] Ready to answer questions about Hack Club!`);
   });
 
   // Background refresh of team & YSWS data every 6 hours
   setInterval(() => {
-    console.log('[Hackwire] Running periodic refresh of Team and YSWS catalog...');
+    console.log('[Hacki] Running periodic refresh of Team and YSWS catalog...');
     fetchTeam().catch(() => {});
     fetchYSWS().catch(() => {});
   }, 6 * 60 * 60 * 1000);
 
   const shutdown = () => {
-    console.log('\n[Hackwire] Gracefully shutting down...');
+    console.log('\n[Hacki] Gracefully shutting down...');
     server.close(() => process.exit(0));
   };
   process.on('SIGINT', shutdown);
@@ -79,6 +79,6 @@ async function start() {
 }
 
 start().catch(err => {
-  console.error('[Hackwire] Fatal startup error:', err);
+  console.error('[Hacki] Fatal startup error:', err);
   process.exit(1);
 });

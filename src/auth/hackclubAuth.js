@@ -3,7 +3,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { config } from '../config.js';
-import { addUserToHackwireChannel } from '../slack/slackChannelManager.js';
+import { addUserToHackiChannel } from '../slack/slackChannelManager.js';
 
 export const authRouter = express.Router();
 
@@ -124,11 +124,11 @@ authRouter.get('/callback', async (req, res) => {
       slackChannelStatus: 'pending'
     };
 
-    // Auto-add to Hackwire Slack channel (#hackwire) using their Slack ID
+    // Auto-add to Hacki Slack channel (#hacki) using their Slack ID
     if (slackId || email) {
       try {
-        console.log(`[Auth] Auto-adding logged in user ${name} (${slackId || email}) to #hackwire Slack channel...`);
-        const slackResult = await addUserToHackwireChannel({
+        console.log(`[Auth] Auto-adding logged in user ${name} (${slackId || email}) to #hacki Slack channel...`);
+        const slackResult = await addUserToHackiChannel({
           slackId,
           email,
           name
@@ -181,7 +181,7 @@ authRouter.post('/join-slack', async (req, res) => {
   }
 
   try {
-    const result = await addUserToHackwireChannel({
+    const result = await addUserToHackiChannel({
       slackId: user.slackId,
       email: user.email,
       name: user.name

@@ -1,6 +1,6 @@
 import { App } from '@slack/bolt';
 import { config } from '../config.js';
-import { askHackwire } from '../ai/hackwireAgent.js';
+import { askHacki } from '../ai/hackiAgent.js';
 
 let botApp = null;
 
@@ -18,13 +18,13 @@ export async function initSlackBot() {
       clientOptions: { retryConfig: { retries: 0 } }
     });
 
-    // Listen for mentions (@Hackwire what is the newest YSWS?)
+    // Listen for mentions (@Hacki what is the newest YSWS?)
     botApp.event('app_mention', async ({ event, say, client }) => {
       console.log(`[SlackBot] Received mention in #${event.channel} from ${event.user}`);
       try {
         // Strip the bot mention tag
         const cleanPrompt = event.text.replace(/<@[A-Z0-9]+>/g, '').trim();
-        const response = await askHackwire(cleanPrompt);
+        const response = await askHacki(cleanPrompt);
 
         await say({
           text: response.answer,
@@ -45,7 +45,7 @@ export async function initSlackBot() {
       if (message.channel_type === 'im' && !message.subtype && message.text) {
         console.log(`[SlackBot] Received DM from ${message.user}`);
         try {
-          const response = await askHackwire(message.text);
+          const response = await askHacki(message.text);
           await say({
             text: response.answer,
             thread_ts: message.thread_ts || message.ts
@@ -57,7 +57,7 @@ export async function initSlackBot() {
     });
 
     await botApp.start();
-    console.log('[SlackBot] Hackwire Slack Bot is online and connected via Socket Mode!');
+    console.log('[SlackBot] Hacki Slack Bot is online and connected via Socket Mode!');
     return botApp;
   } catch (error) {
     console.warn(`[SlackBot] Could not start Slack Bot listener: ${error.message}`);
