@@ -155,7 +155,7 @@ authRouter.get('/callback', async (req, res) => {
     const sessionId = crypto.randomBytes(32).toString('hex');
     sessions.set(sessionId, user);
 
-    res.setHeader('Set-Cookie', `hackwire_session=${sessionId}; HttpOnly; Path=/; SameSite=Lax; Max-Age=2592000`);
+    res.setHeader('Set-Cookie', `hacki_session=${sessionId}; HttpOnly; Path=/; SameSite=Lax; Max-Age=2592000`);
     res.redirect('/');
   } catch (error) {
     console.error('[Auth Callback Error]', error);
@@ -165,7 +165,7 @@ authRouter.get('/callback', async (req, res) => {
           <div>
             <h2>Hack Club Auth Login Failed</h2>
             <p style="color:#ff8c9c;">${error.message}</p>
-            <p><a href="/" style="color:#ec3750;">&larr; Back to Hackwire</a></p>
+            <p><a href="/" style="color:#ec3750;">&larr; Back to Hacki</a></p>
           </div>
         </body>
       </html>

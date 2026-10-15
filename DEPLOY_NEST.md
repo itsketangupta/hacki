@@ -23,7 +23,7 @@ ssh <your-username>@hackclub.app
 Clone the repository from GitHub:
 
 ```bash
-git clone https://github.com/itsketangupta/hackwire.git hacki
+git clone https://github.com/itsketangupta/hacki.git
 cd hacki
 ```
 

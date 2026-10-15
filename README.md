@@ -58,7 +58,7 @@ Detailed deployment instructions for Hack Club's Nest Linux server are available
 Quick summary:
 ```bash
 ssh username@hackclub.app
-git clone https://github.com/itsketangupta/hackwire.git hacki
+git clone https://github.com/itsketangupta/hacki.git
 cd hacki
 npm install
 pm2 start ecosystem.config.cjs
