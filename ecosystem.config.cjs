@@ -1,7 +1,7 @@
 module.exports = {
   apps: [
     {
-      name: 'hacki',
+      name: 'hackwire',
       script: 'src/index.js',
       instances: 1,
       autorestart: true,

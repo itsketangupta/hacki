@@ -12,26 +12,24 @@ function getClient() {
 }
 
 /**
- * Resolve the channel ID for the Hacki channel.
- * Supports direct channel IDs (e.g. C0123456789) or channel names (e.g. 'hacki').
+ * Resolve the channel ID for the Hackwire channel (#hackwire / #hack-wire).
+ * Supports direct channel IDs (e.g. C0C8T8Q8R9P) or channel names (e.g. 'hackwire' / 'hack-wire').
  */
-export async function getHackiChannelId() {
+export async function getHackwireChannelId() {
   if (resolvedChannelId) return resolvedChannelId;
 
-  const target = (config.slackHackiChannel || 'hacki').trim();
+  const target = (config.slackHackwireChannel || 'hackwire').trim();
+
   // If target looks like a Slack channel ID (starts with C, G, or D followed by alphanumeric)
   if (/^[CGD][A-Z0-9]{8,}$/.test(target)) {
     resolvedChannelId = target;
     return resolvedChannelId;
   }
 
-  // Fallback if target is news channel ID
+  // If news channel ID is explicitly configured and valid
   if (config.slackNewsChannel && /^[CGD][A-Z0-9]{8,}$/.test(config.slackNewsChannel)) {
-    // If target name is empty or news channel is explicitly configured
-    if (!target || target === 'news') {
-      resolvedChannelId = config.slackNewsChannel;
-      return resolvedChannelId;
-    }
+    resolvedChannelId = config.slackNewsChannel;
+    return resolvedChannelId;
   }
 
   const client = getClient();
@@ -52,10 +50,14 @@ export async function getHackiChannelId() {
       });
 
       if (res.channels) {
-        found = res.channels.find(c => c.name.toLowerCase() === cleanName);
+        found = res.channels.find(c => {
+          const n = c.name.toLowerCase();
+          return n === cleanName || n === 'hackwire' || n === 'hack-wire';
+        });
+
         if (found) {
           resolvedChannelId = found.id;
-          console.log(`[SlackChannelManager] Found channel #${cleanName} with ID ${found.id}`);
+          console.log(`[SlackChannelManager] Found channel #${found.name} with ID ${found.id}`);
           return resolvedChannelId;
         }
       }
@@ -71,7 +73,7 @@ export async function getHackiChannelId() {
       return resolvedChannelId;
     }
 
-    console.warn(`[SlackChannelManager] Could not resolve channel ID for #${cleanName}. Set SLACK_HACKI_CHANNEL in .env to the channel ID.`);
+    console.warn(`[SlackChannelManager] Could not resolve channel ID for #${cleanName}. Set SLACK_HACKWIRE_CHANNEL in .env to the channel ID.`);
     return null;
   } catch (err) {
     console.warn(`[SlackChannelManager] Error searching for channel #${cleanName}:`, err.message);
@@ -83,14 +85,16 @@ export async function getHackiChannelId() {
   }
 }
 
+export const getHackiChannelId = getHackwireChannelId;
+
 /**
- * Automatically add a user to the Hacki Slack channel when they log in.
+ * Automatically add a user to the Hackwire Slack channel when they log in.
  * @param {Object} options
  * @param {string} options.slackId User's Slack ID (e.g. U0123456789)
  * @param {string} [options.email] User's email
  * @param {string} [options.name] User's display name
  */
-export async function addUserToHackiChannel({ slackId, email, name }) {
+export async function addUserToHackwireChannel({ slackId, email, name }) {
   if (!config.slackBotToken) {
     console.log('[SlackChannelManager] Slack bot token not configured. Skipping Slack channel invite.');
     return { ok: false, reason: 'no_bot_token' };
@@ -122,9 +126,9 @@ export async function addUserToHackiChannel({ slackId, email, name }) {
     return { ok: false, reason: 'no_slack_id' };
   }
 
-  const channelId = await getHackiChannelId();
+  const channelId = await getHackwireChannelId();
   if (!channelId) {
-    console.warn('[SlackChannelManager] Target channel ID not found. Set SLACK_HACKI_CHANNEL in .env.');
+    console.warn('[SlackChannelManager] Target channel ID not found. Set SLACK_HACKWIRE_CHANNEL in .env.');
     return { ok: false, reason: 'channel_not_found' };
   }
 
@@ -146,13 +150,13 @@ export async function addUserToHackiChannel({ slackId, email, name }) {
     });
 
     if (inviteRes.ok) {
-      console.log(`[SlackChannelManager] Successfully added user ${userSlackId} (${name || 'user'}) to channel ${channelId}!`);
+      console.log(`[SlackChannelManager] Successfully added user ${userSlackId} (${name || 'user'}) to #hackwire (${channelId})!`);
 
-      // Optionally post a friendly welcome message in channel
+      // Post a friendly welcome message in channel
       try {
         await client.chat.postMessage({
           channel: channelId,
-          text: `👋 Welcome <@${userSlackId}> to Hacki! Excited to have you here!`
+          text: `👋 Welcome <@${userSlackId}> to Hackwire! Excited to have you here!`
         });
       } catch (postErr) {
         // chat:write might have restrictions, don't fail invite if message fails
@@ -166,7 +170,7 @@ export async function addUserToHackiChannel({ slackId, email, name }) {
     const errCode = inviteErr.data?.error || inviteErr.message;
 
     if (errCode === 'already_in_channel') {
-      console.log(`[SlackChannelManager] User ${userSlackId} is already in channel ${channelId}.`);
+      console.log(`[SlackChannelManager] User ${userSlackId} is already in #hackwire (${channelId}).`);
       return { ok: true, status: 'already_in_channel', channelId };
     }
 
@@ -187,3 +191,5 @@ export async function addUserToHackiChannel({ slackId, email, name }) {
     return { ok: false, reason: errCode };
   }
 }
+
+export const addUserToHackiChannel = addUserToHackwireChannel;

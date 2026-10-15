@@ -9,7 +9,7 @@ export async function fetchYSWS() {
   try {
     const res = await fetch('https://ysws.hackclub.com/data.yml', {
       headers: {
-        'User-Agent': 'HackiBot/1.0 (Hack Club Community Assistant; https://hackclub.com)'
+        'User-Agent': 'HackwireBot/1.0 (Hack Club Community Assistant; https://hackclub.com)'
       }
     });
     if (!res.ok) throw new Error(`HTTP ${res.status} from ysws.hackclub.com/data.yml`);

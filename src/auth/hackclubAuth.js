@@ -3,7 +3,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { config } from '../config.js';
-import { addUserToHackiChannel } from '../slack/slackChannelManager.js';
+import { addUserToHackwireChannel } from '../slack/slackChannelManager.js';
 
 export const authRouter = express.Router();
 
@@ -34,7 +34,7 @@ async function saveUsers() {
 export function getSessionUser(req) {
   const cookie = req.headers.cookie;
   if (!cookie) return null;
-  const match = cookie.match(/(?:^|; )hacki_session=([^;]+)/);
+  const match = cookie.match(/(?:^|; )(?:hackwire_session|hacki_session)=([^;]+)/);
   if (!match) return null;
   return sessions.get(match[1]) || null;
 }
@@ -48,7 +48,7 @@ authRouter.get('/login', (req, res) => {
           <div>
             <h2>Hack Club Auth Not Configured</h2>
             <p style="color:#b4b4b4;">Please set HACKCLUB_CLIENT_ID and HACKCLUB_CLIENT_SECRET in your .env file.</p>
-            <p><a href="/" style="color:#ec3750;">&larr; Back to Hacki</a></p>
+            <p><a href="/" style="color:#ec3750;">&larr; Back to Hackwire</a></p>
           </div>
         </body>
       </html>
@@ -124,11 +124,11 @@ authRouter.get('/callback', async (req, res) => {
       slackChannelStatus: 'pending'
     };
 
-    // Auto-add to Hacki Slack channel using their Slack ID
+    // Auto-add to Hackwire Slack channel (#hackwire) using their Slack ID
     if (slackId || email) {
       try {
-        console.log(`[Auth] Auto-adding logged in user ${name} (${slackId || email}) to Slack channel...`);
-        const slackResult = await addUserToHackiChannel({
+        console.log(`[Auth] Auto-adding logged in user ${name} (${slackId || email}) to #hackwire Slack channel...`);
+        const slackResult = await addUserToHackwireChannel({
           slackId,
           email,
           name
@@ -155,7 +155,7 @@ authRouter.get('/callback', async (req, res) => {
     const sessionId = crypto.randomBytes(32).toString('hex');
     sessions.set(sessionId, user);
 
-    res.setHeader('Set-Cookie', `hacki_session=${sessionId}; HttpOnly; Path=/; SameSite=Lax; Max-Age=2592000`);
+    res.setHeader('Set-Cookie', `hackwire_session=${sessionId}; HttpOnly; Path=/; SameSite=Lax; Max-Age=2592000`);
     res.redirect('/');
   } catch (error) {
     console.error('[Auth Callback Error]', error);
@@ -165,7 +165,7 @@ authRouter.get('/callback', async (req, res) => {
           <div>
             <h2>Hack Club Auth Login Failed</h2>
             <p style="color:#ff8c9c;">${error.message}</p>
-            <p><a href="/" style="color:#ec3750;">&larr; Back to Hacki</a></p>
+            <p><a href="/" style="color:#ec3750;">&larr; Back to Hackwire</a></p>
           </div>
         </body>
       </html>
@@ -181,7 +181,7 @@ authRouter.post('/join-slack', async (req, res) => {
   }
 
   try {
-    const result = await addUserToHackiChannel({
+    const result = await addUserToHackwireChannel({
       slackId: user.slackId,
       email: user.email,
       name: user.name
@@ -204,10 +204,13 @@ authRouter.post('/join-slack', async (req, res) => {
 authRouter.get('/logout', (req, res) => {
   const cookie = req.headers.cookie;
   if (cookie) {
-    const match = cookie.match(/(?:^|; )hacki_session=([^;]+)/);
+    const match = cookie.match(/(?:^|; )(?:hackwire_session|hacki_session)=([^;]+)/);
     if (match) sessions.delete(match[1]);
   }
-  res.setHeader('Set-Cookie', 'hacki_session=; HttpOnly; Path=/; SameSite=Lax; Max-Age=0');
+  res.setHeader('Set-Cookie', [
+    'hackwire_session=; HttpOnly; Path=/; SameSite=Lax; Max-Age=0',
+    'hacki_session=; HttpOnly; Path=/; SameSite=Lax; Max-Age=0'
+  ]);
   res.redirect('/');
 });
 

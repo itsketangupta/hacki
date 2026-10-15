@@ -89,7 +89,7 @@ export async function fetchTeam() {
   try {
     const res = await fetch('https://hackclub.com/team', {
       headers: {
-        'User-Agent': 'HackiBot/1.0 (Hack Club Community Assistant; https://hackclub.com)'
+        'User-Agent': 'HackwireBot/1.0 (Hack Club Community Assistant; https://hackclub.com)'
       }
     });
     if (!res.ok) throw new Error(`HTTP ${res.status} from hackclub.com/team`);

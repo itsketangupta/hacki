@@ -1,5 +1,5 @@
 /* ===================================================================
-   Hacki — ChatGPT-Style Dito UI with Hack Club Red & Aesthetics
+   Hackwire — ChatGPT-Style Dito UI with Hack Club Red & Aesthetics
    =================================================================== */
 
 :root {
@@ -123,6 +123,7 @@ body {
   flex: 1;
 }
 
+.hackwire-brand-logo,
 .hacki-brand-logo {
   width: 34px;
   height: 34px;
@@ -135,6 +136,7 @@ body {
   transition: transform 0.2s ease;
 }
 
+.hackwire-brand-logo:hover,
 .hacki-brand-logo:hover {
   transform: scale(1.08) rotate(-4deg);
 }
@@ -527,6 +529,7 @@ body {
   justify-content: center;
 }
 
+.empty-hackwire-logo,
 .empty-hacki-logo {
   width: 84px;
   height: 84px;
@@ -538,6 +541,7 @@ body {
   transition: transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
+.empty-hackwire-logo:hover,
 .empty-hacki-logo:hover {
   transform: scale(1.08) rotate(-4deg);
 }

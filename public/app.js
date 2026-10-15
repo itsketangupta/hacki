@@ -39,7 +39,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Load chats from localStorage
   function loadStoredChats() {
     try {
-      chats = JSON.parse(localStorage.getItem('hacki_chats')) || [];
+      chats = JSON.parse(localStorage.getItem('hackwire_chats') || localStorage.getItem('hacki_chats')) || [];
     } catch {
       chats = [];
     }
@@ -55,7 +55,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function saveStoredChats() {
     try {
-      localStorage.setItem('hacki_chats', JSON.stringify(chats));
+      localStorage.setItem('hackwire_chats', JSON.stringify(chats));
     } catch (e) {
       console.warn('Could not save to localStorage:', e);
     }
@@ -436,13 +436,13 @@ document.addEventListener('DOMContentLoaded', () => {
         if (userSlackTag && userSlackChannelText) {
           userSlackTag.style.display = 'inline-flex';
           if (data.user.slackChannelJoined || data.user.slackChannelStatus === 'invited' || data.user.slackChannelStatus === 'already_in_channel') {
-            userSlackChannelText.textContent = '#hacki member 🟢';
-            userSlackTag.title = 'You are in the #hacki Slack channel!';
+            userSlackChannelText.textContent = '#hackwire member 🟢';
+            userSlackTag.title = 'You are in the #hackwire Slack channel!';
             userSlackTag.classList.remove('clickable');
             userSlackTag.onclick = null;
           } else if (data.user.slackId) {
-            userSlackChannelText.textContent = 'Join #hacki channel 💬';
-            userSlackTag.title = 'Click to join the #hacki Slack channel';
+            userSlackChannelText.textContent = 'Join #hackwire channel 💬';
+            userSlackTag.title = 'Click to join the #hackwire Slack channel';
             userSlackTag.classList.add('clickable');
             userSlackTag.onclick = async () => {
               userSlackChannelText.textContent = 'Joining...';
@@ -450,14 +450,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 const joinRes = await fetch('/auth/join-slack', { method: 'POST' });
                 const joinData = await joinRes.json();
                 if (joinData.ok) {
-                  userSlackChannelText.textContent = '#hacki member 🟢';
-                  alert('🎉 Success! You have been added to the #hacki Slack channel!');
+                  userSlackChannelText.textContent = '#hackwire member 🟢';
+                  alert('🎉 Success! You have been added to the #hackwire Slack channel!');
                 } else {
-                  userSlackChannelText.textContent = 'Join #hacki channel';
+                  userSlackChannelText.textContent = 'Join #hackwire channel';
                   alert(joinData.error || joinData.reason || 'Could not join channel. Ask an admin in Hack Club Slack.');
                 }
               } catch {
-                userSlackChannelText.textContent = 'Join #hacki channel';
+                userSlackChannelText.textContent = 'Join #hackwire channel';
               }
             };
           } else {
@@ -570,7 +570,7 @@ document.addEventListener('DOMContentLoaded', () => {
             ${m.email ? `<a class="item-link-btn" href="mailto:${m.email}">✉️ ${m.email}</a>` : ''}
             ${m.slackUrl ? `<a class="item-link-btn" href="${m.slackUrl}" target="_blank">💬 Slack Profile</a>` : ''}
             ${m.website ? `<a class="item-link-btn" href="${m.website}" target="_blank">🌐 Website</a>` : ''}
-            <button class="item-link-btn ask-modal-btn" data-query="Tell me about ${m.name} and their role at Hack Club">❓ Ask Hacki</button>
+            <button class="item-link-btn ask-modal-btn" data-query="Tell me about ${m.name} and their role at Hack Club">❓ Ask Hackwire</button>
           </div>
         </div>
       </div>
@@ -606,7 +606,7 @@ document.addEventListener('DOMContentLoaded', () => {
           <div class="item-links">
             ${p.website ? `<a class="item-link-btn" href="${p.website}" target="_blank">🌐 Website</a>` : ''}
             ${p.slackChannel ? `<span class="item-link-btn" style="color:#58a6ff">💬 ${p.slackChannel}</span>` : ''}
-            <button class="item-link-btn ask-modal-btn" data-query="What is ${p.name} YSWS and how do I participate?">❓ Ask Hacki</button>
+            <button class="item-link-btn ask-modal-btn" data-query="What is ${p.name} YSWS and how do I participate?">❓ Ask Hackwire</button>
           </div>
         </div>
       </div>
@@ -642,7 +642,7 @@ document.addEventListener('DOMContentLoaded', () => {
           <div class="item-bio" style="white-space:pre-wrap;">${(o.cleanText || o.summary || '').slice(0, 300)}...</div>
           <div class="item-links">
             ${o.url ? `<a class="item-link-btn" href="${o.url}" target="_blank">💬 Open in Slack</a>` : ''}
-            <button class="item-link-btn ask-modal-btn" data-query="Tell me about the opportunities or reviewer roles posted in #${o.channel}">❓ Ask Hacki</button>
+            <button class="item-link-btn ask-modal-btn" data-query="Tell me about the opportunities or reviewer roles posted in #${o.channel}">❓ Ask Hackwire</button>
           </div>
         </div>
       </div>

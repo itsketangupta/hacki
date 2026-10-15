@@ -1,5 +1,5 @@
 import express from 'express';
-import { askHacki } from '../ai/hackiAgent.js';
+import { askHackwire } from '../ai/hackwireAgent.js';
 import { loadTeam, searchTeam, fetchTeam } from '../scrapers/teamScraper.js';
 import { loadYSWS, searchYSWS, getNewYSWS, getActiveYSWS, fetchYSWS } from '../scrapers/yswsScraper.js';
 import { loadAnnouncements, getHiringOpportunities, getRecentAnnouncements } from '../slack/announcementsCollector.js';
@@ -22,7 +22,7 @@ apiRouter.post('/chat', async (req, res) => {
       return res.status(400).json({ ok: false, error: 'A valid "message" string is required.' });
     }
 
-    const result = await askHacki(message, Array.isArray(history) ? history : []);
+    const result = await askHackwire(message, Array.isArray(history) ? history : []);
     res.json({ ok: true, ...result });
   } catch (error) {
     console.error('[API /chat error]', error);
@@ -42,7 +42,7 @@ apiRouter.get('/status', async (req, res) => {
 
     res.json({
       ok: true,
-      botName: 'Hacki',
+      botName: 'Hackwire',
       version: '1.0.0',
       aiModel: config.aiModel,
       counts: {
