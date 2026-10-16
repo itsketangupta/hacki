@@ -21,25 +21,54 @@ document.addEventListener('DOMContentLoaded', () => {
   const modalSearchInput = document.getElementById('modal-search-input');
   const modalCloseBtn = document.getElementById('modal-close-btn');
 
-  const sidebarTeamBtn = document.getElementById('sidebar-team-btn');
-  const sidebarYswsBtn = document.getElementById('sidebar-ysws-btn');
-  const sidebarOppsBtn = document.getElementById('sidebar-opps-btn');
+
 
   // State
   let chats = [];
   let currentChatId = null;
   let isSending = false;
   let currentModalType = null;
+  let currentUser = null;
 
   // Initialize marked
   if (window.marked) {
     marked.setOptions({ breaks: true, gfm: true });
   }
 
-  // Load chats from localStorage
+  // User-scoped chat storage key
+  function getChatStorageKey() {
+    if (!currentUser) return null;
+    const uid = currentUser.id || currentUser.email || 'user';
+    return `hacki_chats_${uid}`;
+  }
+
+  // Load chats for current authenticated user
   function loadStoredChats() {
+    if (!currentUser) {
+      chats = [];
+      currentChatId = null;
+      renderChatHistorySidebar();
+      renderCurrentChat();
+      return;
+    }
+
+    const key = getChatStorageKey();
     try {
-      chats = JSON.parse(localStorage.getItem('hacki_chats') || localStorage.getItem('hackwire_chats')) || [];
+      const raw = localStorage.getItem(key);
+      if (raw) {
+        chats = JSON.parse(raw) || [];
+      } else {
+        // Migration from legacy un-scoped chat storage
+        const legacyRaw = localStorage.getItem('hacki_chats') || localStorage.getItem('hackwire_chats');
+        if (legacyRaw) {
+          chats = JSON.parse(legacyRaw) || [];
+          localStorage.setItem(key, JSON.stringify(chats));
+          localStorage.removeItem('hacki_chats');
+          localStorage.removeItem('hackwire_chats');
+        } else {
+          chats = [];
+        }
+      }
     } catch {
       chats = [];
     }
@@ -54,8 +83,11 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function saveStoredChats() {
+    if (!currentUser) return;
+    const key = getChatStorageKey();
+    if (!key) return;
     try {
-      localStorage.setItem('hacki_chats', JSON.stringify(chats));
+      localStorage.setItem(key, JSON.stringify(chats));
     } catch (e) {
       console.warn('Could not save to localStorage:', e);
     }
@@ -63,6 +95,10 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function createNewChat() {
+    if (!currentUser) {
+      showAuthModal();
+      return;
+    }
     const newChat = {
       id: 'chat_' + Date.now(),
       title: 'New chat',
@@ -96,6 +132,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function renderChatHistorySidebar() {
     chatHistoryList.innerHTML = '';
+    if (!currentUser) {
+      const notice = document.createElement('div');
+      notice.className = 'chat-history-guest-notice';
+      notice.textContent = 'Sign in to view your chats';
+      chatHistoryList.appendChild(notice);
+      return;
+    }
+
+    if (chats.length === 0) {
+      const notice = document.createElement('div');
+      notice.className = 'chat-history-guest-notice';
+      notice.textContent = 'No conversations yet';
+      chatHistoryList.appendChild(notice);
+      return;
+    }
+
     chats.forEach(chat => {
       const item = document.createElement('div');
       item.className = `chat-history-item ${chat.id === currentChatId ? 'active' : ''}`;
@@ -131,9 +183,23 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function renderCurrentChat() {
-    const chat = getCurrentChat();
     messagesList.innerHTML = '';
+    const emptyDesc = emptyState.querySelector('.empty-desc');
 
+    if (!currentUser) {
+      emptyState.style.display = 'flex';
+      messagesList.style.display = 'none';
+      if (emptyDesc) {
+        emptyDesc.textContent = 'Please sign in with Hack Club to start chatting with Hacki.';
+      }
+      return;
+    }
+
+    if (emptyDesc) {
+      emptyDesc.textContent = 'I am Hacki, here to help you. Whichever question you have, ask me!';
+    }
+
+    const chat = getCurrentChat();
     if (!chat || chat.messages.length === 0) {
       emptyState.style.display = 'flex';
       messagesList.style.display = 'none';
@@ -148,8 +214,23 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  // Hook up starter prompt cards
+  document.querySelectorAll('.empty-prompt-card').forEach(card => {
+    card.addEventListener('click', () => {
+      const q = card.getAttribute('data-query');
+      if (q) {
+        handleSend(q);
+      }
+    });
+  });
+
   // Messaging
   async function handleSend(text) {
+    if (!currentUser) {
+      showAuthModal();
+      return;
+    }
+
     const message = (text || chatInput.value).trim();
     if (!message || isSending) return;
 
@@ -187,11 +268,20 @@ document.addEventListener('DOMContentLoaded', () => {
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
           message,
           history: historyPayload
         })
       });
+
+      if (res.status === 401) {
+        removeTypingIndicator(typingEl);
+        currentUser = null;
+        loadStoredChats();
+        showAuthModal();
+        return;
+      }
 
       const data = await res.json();
       removeTypingIndicator(typingEl);
@@ -228,8 +318,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (role === 'assistant') {
       const avatarImg = document.createElement('img');
       avatarImg.className = 'assistant-avatar';
-      avatarImg.src = 'https://assets.hackclub.com/icon-rounded.svg';
-      avatarImg.alt = 'Hack Club';
+      avatarImg.src = 'hacki-logo.png';
+      avatarImg.alt = 'Hacki';
       item.appendChild(avatarImg);
     }
 
@@ -291,22 +381,6 @@ document.addEventListener('DOMContentLoaded', () => {
       body.appendChild(actions);
     }
 
-    // Follow-up Suggestions
-    if (role === 'assistant' && suggestions && suggestions.length > 0) {
-      const suggRow = document.createElement('div');
-      suggRow.className = 'msg-suggestions-row';
-
-      suggestions.forEach(s => {
-        const chip = document.createElement('button');
-        chip.className = 'msg-suggestion-chip';
-        chip.textContent = s;
-        chip.addEventListener('click', () => handleSend(s));
-        suggRow.appendChild(chip);
-      });
-
-      body.appendChild(suggRow);
-    }
-
     item.appendChild(body);
     messagesList.appendChild(item);
     scrollToBottom();
@@ -318,7 +392,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const avatarImg = document.createElement('img');
     avatarImg.className = 'assistant-avatar';
-    avatarImg.src = 'https://assets.hackclub.com/icon-rounded.svg';
+    avatarImg.src = 'hacki-logo.png';
+    avatarImg.alt = 'Hacki';
     item.appendChild(avatarImg);
 
     const body = document.createElement('div');
@@ -365,8 +440,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Auth Modal Elements
   const authModalBackdrop = document.getElementById('auth-modal-backdrop');
-  const authModalCloseBtn = document.getElementById('auth-modal-close-btn');
-  const authModalGuestBtn = document.getElementById('auth-modal-guest-btn');
   const topbarLoginBtn = document.getElementById('topbar-login-btn');
   const userSlackTag = document.getElementById('user-slack-tag');
   const userSlackChannelText = document.getElementById('user-slack-channel-text');
@@ -378,30 +451,25 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function hideAuthModal() {
-    if (authModalBackdrop) {
+    if (currentUser && authModalBackdrop) {
       authModalBackdrop.style.display = 'none';
     }
-  }
-
-  if (authModalCloseBtn) {
-    authModalCloseBtn.addEventListener('click', hideAuthModal);
-  }
-
-  if (authModalGuestBtn) {
-    authModalGuestBtn.addEventListener('click', hideAuthModal);
-  }
-
-  if (authModalBackdrop) {
-    authModalBackdrop.addEventListener('click', (e) => {
-      if (e.target === authModalBackdrop) {
-        hideAuthModal();
-      }
-    });
   }
 
   if (topbarLoginBtn) {
     topbarLoginBtn.addEventListener('click', () => {
       showAuthModal();
+    });
+  }
+
+  const logoutBtn = document.querySelector('.user-logout-btn');
+  if (logoutBtn) {
+    logoutBtn.addEventListener('click', () => {
+      currentUser = null;
+      chats = [];
+      currentChatId = null;
+      renderChatHistorySidebar();
+      renderCurrentChat();
     });
   }
 
@@ -414,10 +482,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const userAvatarEl = document.getElementById('user-avatar');
 
     try {
-      const res = await fetch('/api/auth/me');
+      const res = await fetch('/api/auth/me', {
+        cache: 'no-store',
+        credentials: 'include'
+      });
       const data = await res.json();
       if (data.ok && data.user) {
         // User is logged in!
+        currentUser = data.user;
         hideAuthModal();
         if (authLoginBtn) authLoginBtn.style.display = 'none';
         if (topbarLoginBtn) topbarLoginBtn.style.display = 'none';
@@ -431,6 +503,13 @@ document.addEventListener('DOMContentLoaded', () => {
             userAvatarEl.textContent = (data.user.name || 'HC').slice(0, 2).toUpperCase();
           }
         }
+
+        // Enable chat input
+        chatInput.disabled = false;
+        chatInput.placeholder = 'Message Hacki...';
+
+        // Load chats belonging to this user
+        loadStoredChats();
 
         // Display Slack channel membership status
         if (userSlackTag && userSlackChannelText) {
@@ -447,7 +526,7 @@ document.addEventListener('DOMContentLoaded', () => {
             userSlackTag.onclick = async () => {
               userSlackChannelText.textContent = 'Joining...';
               try {
-                const joinRes = await fetch('/auth/join-slack', { method: 'POST' });
+                const joinRes = await fetch('/auth/join-slack', { method: 'POST', credentials: 'include' });
                 const joinData = await joinRes.json();
                 if (joinData.ok) {
                   userSlackChannelText.textContent = '#hacki member 🟢';
@@ -465,16 +544,26 @@ document.addEventListener('DOMContentLoaded', () => {
           }
         }
       } else {
-        // Not logged in or logged out -> Show pop-up on start of website!
+        // Not logged in -> Show mandatory login modal, clear chats
+        currentUser = null;
+        loadStoredChats();
         showAuthModal();
+        chatInput.disabled = true;
+        chatInput.placeholder = 'Please sign in with Hack Club to chat...';
+        sendBtn.disabled = true;
         if (authLoginBtn) authLoginBtn.style.display = 'flex';
         if (topbarLoginBtn) topbarLoginBtn.style.display = 'block';
         if (userProfileCard) userProfileCard.style.display = 'none';
         if (userSlackTag) userSlackTag.style.display = 'none';
       }
     } catch {
-      // Failed to reach auth endpoint -> Prompt login pop-up
+      // Failed to reach auth endpoint -> Prompt login pop-up, clear chats
+      currentUser = null;
+      loadStoredChats();
       showAuthModal();
+      chatInput.disabled = true;
+      chatInput.placeholder = 'Please sign in with Hack Club to chat...';
+      sendBtn.disabled = true;
       if (authLoginBtn) authLoginBtn.style.display = 'flex';
       if (topbarLoginBtn) topbarLoginBtn.style.display = 'block';
       if (userProfileCard) userProfileCard.style.display = 'none';
@@ -657,11 +746,8 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  sidebarTeamBtn.addEventListener('click', () => openModal('👥 Hack Club Team Directory', 'team'));
-  sidebarYswsBtn.addEventListener('click', () => openModal('🚀 Hack Club YSWS Programs', 'ysws'));
-  sidebarOppsBtn.addEventListener('click', () => openModal('📢 Slack Opportunities & Reviewer Calls', 'opps'));
+
 
   // Init
-  loadStoredChats();
   checkAuth();
 });

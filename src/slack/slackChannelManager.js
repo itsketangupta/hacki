@@ -1,5 +1,6 @@
 import { WebClient } from '@slack/web-api';
 import { config } from '../config.js';
+import { sendWelcomeMessage } from './slackBot.js';
 
 let webClient = null;
 let resolvedChannelId = null;
@@ -18,7 +19,7 @@ function getClient() {
 export async function getHackiChannelId() {
   if (resolvedChannelId) return resolvedChannelId;
 
-  const target = (config.slackHackiChannel || config.slackHackwireChannel || 'hacki').trim();
+  const target = (config.slackHackiChannel || 'hacki').trim();
 
   // If target looks like a Slack channel ID (starts with C, G, or D followed by alphanumeric)
   if (/^[CGD][A-Z0-9]{8,}$/.test(target)) {
@@ -52,7 +53,7 @@ export async function getHackiChannelId() {
       if (res.channels) {
         found = res.channels.find(c => {
           const n = c.name.toLowerCase();
-          return n === cleanName || n === 'hacki' || n === 'hackwire';
+          return n === cleanName || n === 'hacki';
         });
 
         if (found) {
@@ -156,11 +157,14 @@ export async function addUserToHackiChannel({ slackId, email, name }) {
       try {
         await client.chat.postMessage({
           channel: channelId,
-          text: `👋 Welcome <@${userSlackId}> to Hacki! Excited to have you here!`
+          text: `👋 Welcome <@${userSlackId}> to Hack Club! I am Hacki, here to help you. Whichever question you have, ask me!`
         });
       } catch (postErr) {
         // chat:write might have restrictions, don't fail invite if message fails
       }
+
+      // Also send a direct welcome DM to the fresh user
+      sendWelcomeMessage(userSlackId).catch(() => {});
 
       return { ok: true, status: 'invited', channelId };
     }

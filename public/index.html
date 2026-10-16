@@ -45,21 +45,8 @@
         <!-- Rendered dynamically -->
       </div>
 
-      <!-- Bottom Nav Shortcuts -->
+      <!-- Sidebar User Section -->
       <div class="sidebar-bottom">
-        <button class="sidebar-nav-item" id="sidebar-team-btn">
-          <span class="nav-icon">👥</span>
-          <span>Team Directory</span>
-        </button>
-        <button class="sidebar-nav-item" id="sidebar-ysws-btn">
-          <span class="nav-icon">🚀</span>
-          <span>YSWS Programs</span>
-        </button>
-        <button class="sidebar-nav-item" id="sidebar-opps-btn">
-          <span class="nav-icon">📢</span>
-          <span>Slack Opportunities</span>
-        </button>
-
         <!-- Hack Club Auth Section -->
         <div class="auth-section" id="auth-section">
           <!-- Logged out state -->
@@ -130,8 +117,51 @@
           <div class="empty-logo-wrap">
             <img src="hacki-logo.png" alt="Hacki Mascot Logo" class="empty-hacki-logo">
           </div>
-          <h2 class="empty-title">What can I help with today?</h2>
-          <p class="empty-desc">Ask Hacki about Hack Club YSWS programs, team members, or reviewer roles.</p>
+          <h2 class="empty-title">Welcome to Hack Club!</h2>
+          <p class="empty-desc">I am Hacki, here to help you. Whichever question you have, ask me!</p>
+
+          <div class="empty-prompts-grid" id="empty-prompts-grid">
+            <button class="empty-prompt-card" data-query="What is Hack Club?">
+              <span class="prompt-icon">🦖</span>
+              <span class="prompt-text">What is Hack Club?</span>
+            </button>
+            <button class="empty-prompt-card" data-query="What is YSWS? (You Ship, We Ship)">
+              <span class="prompt-icon">🚀</span>
+              <span class="prompt-text">What is YSWS?</span>
+            </button>
+            <button class="empty-prompt-card" data-query="Where is HQ located?">
+              <span class="prompt-icon">🌲</span>
+              <span class="prompt-text">Where is HQ located?</span>
+            </button>
+            <button class="empty-prompt-card" data-query="Who are gappies?">
+              <span class="prompt-icon">🎓</span>
+              <span class="prompt-text">Who are gappies?</span>
+            </button>
+            <button class="empty-prompt-card" data-query="How to contribute Hack Club?">
+              <span class="prompt-icon">🤝</span>
+              <span class="prompt-text">How to contribute?</span>
+            </button>
+            <button class="empty-prompt-card" data-query="What is HCB? (Hack Club Bank)">
+              <span class="prompt-icon">💳</span>
+              <span class="prompt-text">What is HCB?</span>
+            </button>
+            <button class="empty-prompt-card" data-query="How to host a YSWS?">
+              <span class="prompt-icon">📦</span>
+              <span class="prompt-text">How to host a YSWS?</span>
+            </button>
+            <button class="empty-prompt-card" data-query="How to verify ID?">
+              <span class="prompt-icon">🪪</span>
+              <span class="prompt-text">How to verify ID?</span>
+            </button>
+            <button class="empty-prompt-card" data-query="Hey is Hack Club give us free tools like ai.hackclub.com hackclub.app?">
+              <span class="prompt-icon">🛠️</span>
+              <span class="prompt-text">Free tools (AI, Nest)</span>
+            </button>
+            <button class="empty-prompt-card" data-query="How to become gappie?">
+              <span class="prompt-icon">🌟</span>
+              <span class="prompt-text">How to become gappie?</span>
+            </button>
+          </div>
         </div>
 
         <!-- Messages stream -->
@@ -173,8 +203,6 @@
   <!-- Mandatory Welcome / Login Pop-Up Modal -->
   <div class="auth-modal-backdrop" id="auth-modal-backdrop" style="display: none;">
     <div class="auth-modal-card">
-      <button class="auth-modal-close" id="auth-modal-close-btn" title="Dismiss">&times;</button>
-      
       <div class="auth-modal-header">
         <div class="auth-modal-logo-wrapper">
           <img src="hacki-logo.png" alt="Hacki Logo" class="auth-modal-logo">
@@ -212,9 +240,6 @@
           <img src="hackclub-flag.svg" alt="" class="auth-modal-btn-flag">
           <span>Sign in with Hack Club</span>
         </a>
-        <button type="button" class="auth-modal-guest-btn" id="auth-modal-guest-btn">
-          Continue as Guest
-        </button>
       </div>
 
       <div class="auth-modal-footer">

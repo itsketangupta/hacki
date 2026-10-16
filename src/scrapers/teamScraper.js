@@ -81,6 +81,18 @@ const knownLeadership = [
     email: '',
     website: '',
     avatar: ''
+  },
+  {
+    name: 'Euan Ripper',
+    role: 'Teen Contributor',
+    department: 'Hack Club HQ - Teen Contributors',
+    staff: false,
+    isGappie: false,
+    bio: 'Euan learned to code to automate a boring job at 16. He realised he loved coding and making so started to teach robotics to younger kids and now is building programs and engineering projects to teach kids all around the world at Hack Club HQ.',
+    slackId: 'U06T30DNB3L',
+    email: 'euan@hackclub.com',
+    website: '',
+    avatar: 'https://i.ibb.co/nsDXYvPZ/Euan.jpg'
   }
 ];
 
@@ -97,7 +109,7 @@ export async function fetchTeam() {
 
     const membersMap = new Map();
 
-    // 1. Seed with known leadership
+    // 1. Seed with known core team
     for (const leader of knownLeadership) {
       membersMap.set(leader.name.toLowerCase(), {
         ...leader,
@@ -105,7 +117,38 @@ export async function fetchTeam() {
       });
     }
 
-    // 2. Extract Next.js RSC push chunks
+    // 2. Parse Section Headings from HTML
+    const tokens = html.split(/(<h[23][^>]*>.*?<\/h[23]>)/i);
+    let currentMain = 'Hack Club HQ';
+    let currentSub = '';
+    const memberSectionMap = new Map();
+
+    for (let i = 0; i < tokens.length; i++) {
+      const t = tokens[i];
+      const hMatch = t.match(/<h([23])[^>]*>(.*?)<\/h[23]>/i);
+      if (hMatch) {
+        const level = hMatch[1];
+        const title = hMatch[2].replace(/&amp;/g, '&').replace(/<[^>]+>/g, '').trim();
+        if (level === '2') {
+          currentMain = title;
+          currentSub = '';
+        } else {
+          currentSub = title;
+        }
+      } else {
+        const fullSection = currentSub ? `${currentMain} - ${currentSub}` : currentMain;
+        const isGappie = fullSection.toLowerCase().includes('gap year') || fullSection.toLowerCase().includes('gappie');
+        const names = [...t.matchAll(/aria-label="View ([^"]+)"/g)].map(m => m[1]);
+        for (const n of names) {
+          memberSectionMap.set(n.toLowerCase().trim(), {
+            section: fullSection,
+            isGappie
+          });
+        }
+      }
+    }
+
+    // 3. Extract Next.js RSC push chunks
     const rscMatches = [...html.matchAll(/self\.__next_f\.push\(\[1,"([\s\S]*?)"\]\)/g)];
     let combined = '';
     for (const m of rscMatches) {
@@ -116,7 +159,7 @@ export async function fetchTeam() {
       }
     }
 
-    // 3. Extract member JSON objects
+    // 4. Extract member JSON objects
     const objMatches = [...combined.matchAll(/\{"name":\s*"([^"]+)"[\s\S]*?\}/g)];
     for (const m of objMatches) {
       try {
@@ -131,10 +174,19 @@ export async function fetchTeam() {
             : null;
 
           const existing = membersMap.get(key) || {};
+          const sec = memberSectionMap.get(key) || {};
+          const isEuan = key === 'euan ripper' || key === 'euan' || key === 'eaun ripper' || key === 'eaun';
+          const isGappie = isEuan ? false : Boolean(sec.isGappie || existing.isGappie || (obj.role && obj.role.toLowerCase().includes('gap')) || (obj.department && obj.department.toLowerCase().includes('gap')));
+          const department = isEuan
+            ? 'Hack Club HQ - Teen Contributors'
+            : (sec.section || existing.department || obj.department || (isGappie ? 'Hack Club HQ - Gap Year (Gappie)' : 'Hack Club'));
+          const role = isEuan ? 'Teen Contributor' : (obj.role || existing.role || 'Team Member');
+
           membersMap.set(key, {
             name: obj.name.trim(),
-            role: obj.role || existing.role || 'Team Member',
-            department: obj.department || existing.department || 'Hack Club',
+            role,
+            department,
+            isGappie,
             staff: typeof obj.staff === 'boolean' ? obj.staff : existing.staff || false,
             bio: (obj.bio || existing.bio || '').replace(/\\n/g, '\n').replace(/\\"/g, '"').trim(),
             slackId: obj.slackId || existing.slackId || '',
@@ -178,9 +230,58 @@ export async function loadTeam() {
 
 export async function searchTeam(query = '') {
   const team = await loadTeam();
-  const q = query.toLowerCase().trim();
-  if (!q) return team.slice(0, 20);
+  const q = String(query || '').toLowerCase().trim().replace(/\beaun\b/g, 'euan');
+  if (!q) return team.slice(0, 25);
 
+  // If asking about gappies or gap years in general:
+  if (/\b(gappie|gappies|gap year|gap years|gap)\b/i.test(q)) {
+    const gappies = team.filter(m => m.isGappie || (m.department && m.department.toLowerCase().includes('gap')) || (m.bio && m.bio.toLowerCase().includes('gap')));
+    if (gappies.length > 0) return gappies;
+  }
+
+  // Remove common conversational query filler words
+  const clean = q
+    .replace(/\beaun\b/g, 'euan')
+    .replace(/\b(who|is|are|tell|me|about|what|does|do|the|a|an|can|you|in|at|on|for|of|hack|club|team|member|person|work|works|role|engineer|developer)\b/gi, ' ')
+    .replace(/[^\w\s]/g, ' ')
+    .trim();
+
+  const words = clean.split(/\s+/).filter(w => w.length > 1);
+
+  if (words.length > 0) {
+    const scored = [];
+    for (const member of team) {
+      const nameLower = member.name.toLowerCase();
+      const roleLower = (member.role || '').toLowerCase();
+      const deptLower = (member.department || '').toLowerCase();
+      const bioLower = (member.bio || '').toLowerCase();
+      let score = 0;
+
+      for (const w of words) {
+        const nameParts = nameLower.split(/\s+/);
+        if (nameParts.includes(w)) {
+          score += 25; // Exact first/last name hit (e.g. "euan", "ripper", "zach")
+        } else if (nameLower.includes(w)) {
+          score += 15;
+        }
+        if (roleLower.includes(w)) score += 8;
+        if (deptLower.includes(w)) score += 6;
+        if (bioLower.includes(w)) score += 3;
+        if (member.isGappie && (w === 'gappie' || w === 'gappies')) score += 12;
+      }
+
+      if (score > 0) {
+        scored.push({ member, score });
+      }
+    }
+
+    if (scored.length > 0) {
+      scored.sort((a, b) => b.score - a.score);
+      return scored.map(s => s.member);
+    }
+  }
+
+  // Fallback to direct substring search on raw query
   return team.filter(member => {
     return (
       member.name.toLowerCase().includes(q) ||
@@ -194,7 +295,7 @@ export async function searchTeam(query = '') {
 
 export async function findMemberByName(nameQuery = '') {
   const team = await loadTeam();
-  const clean = nameQuery.toLowerCase().trim();
+  const clean = nameQuery.toLowerCase().trim().replace(/\beaun\b/g, 'euan');
   // Exact match
   const exact = team.find(m => m.name.toLowerCase() === clean);
   if (exact) return exact;

@@ -1,8 +1,63 @@
 import { App } from '@slack/bolt';
+import { WebClient } from '@slack/web-api';
+import fs from 'node:fs/promises';
+import path from 'node:path';
 import { config } from '../config.js';
 import { askHacki } from '../ai/hackiAgent.js';
 
 let botApp = null;
+const welcomedUsersFile = path.join(config.dataDir, 'welcomed_users.json');
+let welcomedUsers = new Set();
+
+export const WELCOME_MESSAGE = "👋 Welcome to Hack Club! I am Hacki, here to help you. Whichever question you have, ask me!";
+
+async function loadWelcomedUsers() {
+  try {
+    const raw = await fs.readFile(welcomedUsersFile, 'utf8');
+    const list = JSON.parse(raw);
+    welcomedUsers = new Set(list);
+  } catch {
+    welcomedUsers = new Set();
+  }
+}
+loadWelcomedUsers();
+
+async function saveWelcomedUsers() {
+  try {
+    await fs.mkdir(config.dataDir, { recursive: true });
+    await fs.writeFile(welcomedUsersFile, JSON.stringify([...welcomedUsers]), 'utf8');
+  } catch (err) {
+    console.warn('[SlackBot] Could not save welcomed users:', err.message);
+  }
+}
+
+/**
+ * Send the official welcome DM to a user on Slack.
+ * @param {string} slackUserId
+ */
+export async function sendWelcomeMessage(slackUserId) {
+  if (!slackUserId) return false;
+  try {
+    const client = botApp?.client || (config.slackBotToken ? new WebClient(config.slackBotToken) : null);
+    if (!client) {
+      console.warn('[SlackBot] Cannot send welcome DM: Slack client not available.');
+      return false;
+    }
+
+    await client.chat.postMessage({
+      channel: slackUserId,
+      text: WELCOME_MESSAGE
+    });
+
+    welcomedUsers.add(slackUserId);
+    saveWelcomedUsers().catch(() => {});
+    console.log(`[SlackBot] Sent welcome DM to user ${slackUserId}: "${WELCOME_MESSAGE}"`);
+    return true;
+  } catch (err) {
+    console.warn(`[SlackBot] Could not send welcome message to ${slackUserId}:`, err.message);
+    return false;
+  }
+}
 
 export async function initSlackBot() {
   if (!config.enableSlackBot || !config.slackBotToken || !config.slackAppToken) {
@@ -18,7 +73,25 @@ export async function initSlackBot() {
       clientOptions: { retryConfig: { retries: 0 } }
     });
 
-    // Listen for mentions (@Hacki what is the newest YSWS?)
+    // 1. Welcome fresh new people when they join the Hack Club Slack workspace
+    botApp.event('team_join', async ({ event, client }) => {
+      const userId = event.user?.id || event.user;
+      console.log(`[SlackBot] team_join detected for fresh member: ${userId}`);
+      if (userId) {
+        await sendWelcomeMessage(userId);
+      }
+    });
+
+    // 2. Welcome users when they open Hacki's App Home / DM for the first time
+    botApp.event('app_home_opened', async ({ event, client }) => {
+      const userId = event.user;
+      if (userId && !welcomedUsers.has(userId)) {
+        console.log(`[SlackBot] Fresh user opened Hacki App Home: ${userId}`);
+        await sendWelcomeMessage(userId);
+      }
+    });
+
+    // 3. Listen for mentions (@Hacki what is the newest YSWS?)
     botApp.event('app_mention', async ({ event, say, client }) => {
       console.log(`[SlackBot] Received mention in #${event.channel} from ${event.user}`);
       try {
@@ -39,12 +112,18 @@ export async function initSlackBot() {
       }
     });
 
-    // Listen for direct messages (DMs)
+    // 4. Listen for direct messages (DMs)
     botApp.message(async ({ message, say }) => {
       // Only handle direct messages (im) and ignore bot messages
       if (message.channel_type === 'im' && !message.subtype && message.text) {
         console.log(`[SlackBot] Received DM from ${message.user}`);
         try {
+          // If first DM from this user, ensure marked as welcomed
+          if (message.user && !welcomedUsers.has(message.user)) {
+            welcomedUsers.add(message.user);
+            saveWelcomedUsers().catch(() => {});
+          }
+
           const response = await askHacki(message.text);
           await say({
             text: response.answer,

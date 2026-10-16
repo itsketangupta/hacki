@@ -10,13 +10,19 @@ export const apiRouter = express.Router();
 
 // Current authenticated user
 apiRouter.get('/auth/me', (req, res) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
   const user = getSessionUser(req);
   res.json({ ok: true, user: user || null });
 });
 
-// Chat endpoint
+// Chat endpoint (requires authenticated user)
 apiRouter.post('/chat', async (req, res) => {
   try {
+    const user = getSessionUser(req);
+    if (!user) {
+      return res.status(401).json({ ok: false, error: 'Please sign in with Hack Club to chat.' });
+    }
+
     const { message, history } = req.body || {};
     if (!message || typeof message !== 'string') {
       return res.status(400).json({ ok: false, error: 'A valid "message" string is required.' });
