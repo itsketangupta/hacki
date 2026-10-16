@@ -112,11 +112,18 @@ export async function initSlackBot() {
       }
     });
 
-    // 4. Listen for direct messages (DMs)
+    // 4. Listen for direct messages (DMs) & conversation messages
     botApp.message(async ({ message, say }) => {
-      // Only handle direct messages (im) and ignore bot messages
-      if (message.channel_type === 'im' && !message.subtype && message.text) {
-        console.log(`[SlackBot] Received DM from ${message.user}`);
+      if (!message || !message.text) return;
+      // Ignore bot messages to avoid loops
+      if (message.bot_id || message.subtype === 'bot_message') return;
+
+      const isDM = message.channel_type === 'im' || 
+                   message.channel_type === 'mpim' || 
+                   (typeof message.channel === 'string' && message.channel.startsWith('D'));
+
+      if (isDM) {
+        console.log(`[SlackBot] Received DM from ${message.user}: "${message.text}"`);
         try {
           // If first DM from this user, ensure marked as welcomed
           if (message.user && !welcomedUsers.has(message.user)) {
@@ -131,6 +138,10 @@ export async function initSlackBot() {
           });
         } catch (err) {
           console.error('[SlackBot] Error replying to DM:', err.message);
+          await say({
+            text: "Oops! I ran into an issue answering that. Please ask again or check `https://hackclub.com`!",
+            thread_ts: message.thread_ts || message.ts
+          });
         }
       }
     });

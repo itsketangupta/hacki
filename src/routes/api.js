@@ -15,21 +15,17 @@ apiRouter.get('/auth/me', (req, res) => {
   res.json({ ok: true, user: user || null });
 });
 
-// Chat endpoint (requires authenticated user)
+// Chat endpoint (supports both authenticated members and guests)
 apiRouter.post('/chat', async (req, res) => {
   try {
     const user = getSessionUser(req);
-    if (!user) {
-      return res.status(401).json({ ok: false, error: 'Please sign in with Hack Club to chat.' });
-    }
-
     const { message, history } = req.body || {};
     if (!message || typeof message !== 'string') {
       return res.status(400).json({ ok: false, error: 'A valid "message" string is required.' });
     }
 
     const result = await askHacki(message, Array.isArray(history) ? history : []);
-    res.json({ ok: true, ...result });
+    res.json({ ok: true, user: user || null, ...result });
   } catch (error) {
     console.error('[API /chat error]', error);
     res.status(500).json({ ok: false, error: error.message });

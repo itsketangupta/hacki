@@ -3,6 +3,237 @@ import { searchTeam, findMemberByName, loadTeam } from '../scrapers/teamScraper.
 import { getNewYSWS, getActiveYSWS, searchYSWS, loadYSWS } from '../scrapers/yswsScraper.js';
 import { getHiringOpportunities, getRecentAnnouncements, searchAnnouncements } from '../slack/announcementsCollector.js';
 
+export const YSWS_MAKE_RUN_SOURCES = [
+  { title: '#ask-the-ysws-orgs (Slack Channel)', url: 'https://hackclub.slack.com', type: 'slack' },
+  { title: 'YSWS Sponsors List', url: 'https://hackclub.enterprise.slack.com/lists/T0266FRGM/F09M93YCM1Q', type: 'slack' },
+  { title: 'Hack Club YSWS Catalog', url: 'https://ysws.hackclub.com', type: 'ysws' }
+];
+
+export const YSWS_MAKE_RUN_GUIDE = `### 🚀 How do I make a YSWS?
+
+*"I see lots of people asking in this channel "How do I make a YSWS?", and I'm tired. So, I present to you, my waste of 1 hour in which I was meant to be doing homework, this beautiful guide! — @Swarit"*
+
+---
+
+### 1. 💡 Pitch your idea!
+This is the most exciting part, when you get to experiment with ideas and see what the community likes! 🎉
+
+Simply put, we want **YOU** to send your YSWS idea in this channel (**\`#ysws\`**), in this format:
+
+> **You ship:** *(something coding related that the participants ship)*  
+> **We ship:** *(something with monetary or sentimental value that is related to the you ship)*
+
+Once you post it, people will react with :upvote: or :downvote: to show how they feel about your idea, and they should respond with constructive criticism in a thread 🧵.
+
+Make sure to participate in the discussion, and once you think your idea is polished enough and has received enough feedback (and upvotes!), you can move to the next step.
+
+> **Side Note:** You should aim for at least **10–15 upvotes** before moving to the next step.
+
+---
+
+### 2. 📢 Create a channel!
+Now, you get to make a channel!
+- Right-click anywhere in the channel menu on the left side, and create a channel, named after your YSWS! Get creative!
+- Reply to the thread where you originally pitched your idea and mention your channel.
+- *(Optionally, send it to the channel as well!)*
+- Now, as members pile in, welcome them and get busy, as you will be after this step!
+
+---
+
+### 3. 📝 Get some RSVPs!
+- Make a form on [build.fillout.com](https://build.fillout.com) that asks for their Slack username, as a way to verify that they are real.
+- Then, you can \`/channel\` ping in your YSWS channel to tell everyone to RSVP!
+
+---
+
+### 4. 🌐 Make a website!
+- Cook up a nice looking, creative website that *"blows our socks off"* – \`@ascpixi\` to attract sponsors! Please don't vibecode it!
+- Make sure to include a **FAQ section** and a link to your **RSVP form on Fillout**.
+- \`/channel\` ping yet again to advertise your fresh website!
+- *Tip:* At this point, if your YSWS idea is good, you should be getting a steady stream of new members, so you might want to make a welcomer workflow to tell them to RSVP!
+
+---
+
+### 5. 📣 Advertise
+Now, it's time to advertise! 🎉
+- Create a fun little description for your YSWS and post it in **\`#ysws\`** & **\`#ysws-ads\`** to get more members! You should be seeing quite a few members piling in once you do this.
+- It is generally recommended to do this once or twice a week to try to attract sponsors!
+- **Note:** You can only post your advert once a week in **\`#ysws\`**, however, you can submit your event to **\`@YSWS Submit\`** and it will be included in the weekly update over in **\`#ysws-bulletin\`**.
+
+---
+
+### 6. ⏳ And now we... wait..?
+Now, you wait. A potential sponsor will eventually hit you up!
+- If you are impatient (:noooovanish:), you can DM sponsors, but some of them might find it annoying.
+- To find sponsors to DM, look at this list: [Hack Club Sponsors List](https://hackclub.enterprise.slack.com/lists/T0266FRGM/F09M93YCM1Q)
+- That's pretty much it! Once you have a sponsor, they will inform you on how to proceed and what to do next and how you will be accepting submissions!
+
+**Happy YSWSing! :hack-club:** 🦖
+
+---
+
+### ❓ Further Questions?
+**\`#ask-the-ysws-orgs\`** is the best place to get feedback / help on YSWSs you're running!`;
+
+export const GETTING_INVOLVED_SOURCES = [
+  { title: '#hc-opportunities (Slack Channel)', url: 'https://hackclub.slack.com', type: 'slack' },
+  { title: '#bounty & #community-bounties', url: 'https://hackclub.slack.com', type: 'slack' },
+  { title: 'Hack Club Community', url: 'https://hackclub.com', type: 'general' }
+];
+
+export const GETTING_INVOLVED_GUIDE = `### 🌟 Getting Involved in Hack Club (Canvas by @queso)
+
+*"I've seen a lot of people wondering how to get involved in Hack Club, and I thought it would be a good idea to write up a quick canvas on getting involved. I am not affiliated with HQ but here are some insights that I've learned & want to share. — @queso 🦈"*
+
+---
+
+### 📌 Regarding \`#hc-opportunities\`
+- **\`#hc-opportunities\`** was created as an entry point to Hack Club and a place where opportunities are compiled.
+- **Proactive initiative is key:** Applications in \`#hc-opportunities\` are only meant to be a jumpstart to your Hack Club journey — sometimes you just need a place to get started. They are not intended to replace proactively creating opportunities.
+- General guidelines and work ethic matter far more than waiting for an exact plan — it is ultimately up to you to be proactive!
+
+---
+
+### 🚀 Organizers Want to See Proactive People
+A lot of people ask how they can join help teams or become a reviewer/organizer of an event. **The answer is simply that you shouldn't wait to be invited into roles; you should proactively pursue them:**
+
+1. **Answer questions before asking to join:**
+   - Instead of asking an organizer if you can join a help team, start answering questions in the event channels until people notice you (don't worry, they will!).
+   - Make sure your answers are detailed and accurate — a lot of questions can be answered by the README or docs.
+2. **When to DM organizers:**
+   - You can DM offering to help, but **only for things you cannot directly get involved in without permission** (e.g., *"I noticed that review/fulfillment times were taking a while, I'd love to help out if you're interested!"*).
+   - Avoid DMing for roles like support/help teams where you can already proactively help in public channels and show your commitment without being on an official team list.
+3. **Be active in the community:**
+   - Being active in event channels and Hack Club Slack in general gets you noticed much quicker and shows organizers that you genuinely care about their event and Hack Club!
+   - Don't spam people. If an organizer declines an offer, thank them and move on.
+   - **Commitment rule:** If you offer to help, ensure you are 100% committed to the role and will not back out or leave responsibilities unfulfilled.
+
+---
+
+### 🎪 Organizing a Major Event
+If you're hoping to organize a major event, you have to start somewhere!
+- **Launch your own YSWS:** Build experience leading a team by organizing your own YSWS (**\`#ysws\`**) or join an existing team and learn from it.
+  - *What's a YSWS?* A "You Ship, We Ship" program where participants ship projects/hours and Hack Club ships them rewards!
+  - Leading a team and managing your own program shows your work ethic and organizing ability so other organizers trust you.
+  - For your first YSWS, work with people who already have experience that you can learn from.
+  - *Pro-tip on web dev:* Hack Club has lots of skilled web developers you can commission to build your site — please don't fully vibecode an entire platform! Check **\`#bounty\`** and **\`#community-bounties\`** to find builders.
+- **Major Flagships:** Check \`@sofia\`'s comprehensive guide on running flagship events after you have gained experience running a few YSWS programs or satellite events.
+
+---
+
+### 💼 General Work Ethic Guidelines (Very Important!)
+
+#### 1. 🎯 Quality over Quantity
+- Pick a few responsibilities and contribute deeply to them. Don't spread yourself too thin collecting titles without doing quality work.
+- Failing to fulfill responsibilities reflects poorly on commitment. Stand out in what you choose to take on.
+- Ensure you are passionate about what you contribute to; if not, drop it and find something right for you.
+
+#### 2. 🤝 Delegation, People, & Responsibilities
+- When organizing or on a team, delegate tasks based on individual strengths (e.g. web dev, reviewing, logistics). Don't try to do everything yourself.
+- Trust your team and avoid micromanaging. A good team functions as a system where everyone does their part.
+- **Assign responsibilities rather than titles:** Instead of handing out titles like "lead reviewer", see who does the most reviews and steps up proactively. Giving roles to people who step up yields the highest quality results.
+
+#### 3. 🛡️ Taking Responsibility
+- Keep up with your commitments. If you cannot pull your weight, let the team know or step down gracefully. Getting involved shouldn't just be about titles.
+- Taking breaks is 100% okay! Just give your team a heads-up in advance so there are no surprises.
+
+#### 4. 📢 Transparency & Communication is Key
+- Communicate respectfully and clearly.
+- If you can no longer fulfill responsibilities (tests, vacation, burnout), let your organizers/teammates know ASAP.
+- When mistakes or miscommunications happen, handle them maturely: identify the issue, discuss how to handle it better next time, and apologize if it was on your end.
+
+#### 5. 💎 Keep a High Standard of Work Quality
+- Put in genuine effort and take pride in your work. Holding yourself to high standards builds a reputation as someone organizers can rely on.
+
+#### 6. 💬 Constructive Feedback
+- Feedback is meant to improve the project, not attack you personally. Be open-minded and willing to adapt.
+- Address issues with teammates privately and respectfully — never publicly shame anyone.
+- Remember: **It is you & your team vs. the problem, not you vs. your team.**
+
+#### 7. 💖 Be Kind to People!
+- Polite, respectful, and open-minded people make organizers want you on their team.
+- This doesn't mean always agreeing — healthy diversity of perspectives and respectful constructive input makes programs better!`;
+
+export const YSWS_SPONSORS_SOURCES = [
+  { title: 'Hack Club Team (Gap Year Section)', url: 'https://hackclub.com/team', type: 'team' },
+  { title: 'YSWS Sponsors List on Slack', url: 'https://hackclub.enterprise.slack.com/lists/T0266FRGM/F09M93YCM1Q', type: 'slack' },
+  { title: '#ask-the-ysws-orgs (Slack Channel)', url: 'https://hackclub.slack.com', type: 'slack' }
+];
+
+export const YSWS_SPONSORS_GUIDE = `### 🤝 Who is Sponsoring YSWS Programs?
+
+At Hack Club, community YSWS (You Ship, We Ship) programs are sponsored, guided, and coordinated by the **Gap Year team members ("Gappies")** working full-time at **Hack Club HQ in Shelburne, Vermont**, backed by Hack Club's funding and donors!
+
+Here are the names from the **Gap Year section of [hackclub.com/team](https://hackclub.com/team)**:
+- **Afia Ava**
+- **Anson Chung**
+- **Antonio Archer**
+- **Armand**
+- **Barnav Mitra**
+- **Beltran**
+- **Brendan Reynard**
+- **Cisco**
+- **David P**
+- **Emma**
+- **Fiona**
+- **Jenny**
+- **Joaquin Schere**
+- **Johnathan McPhilbin**
+- **Jolly Wang**
+- **Kai Pereira**
+- **Kartikey Chauhan**
+- **Katie**
+- **Kaylee Dinh**
+- **Lela Harkrader**
+- **Lewin Kelly**
+- **Liam Newbill**
+- **Lola**
+- **Luke Oldenburg**
+- **Max H**
+- **Meghana Madiraju**
+- **Miguel**
+- **Mihir Maroju**
+- **Nick Do**
+- **Ren Leonard**
+- **Rudy**
+- **Sebastian Hernandez**
+- **Selena Nguyen**
+- **Sophia Duan**
+
+---
+
+### 📋 Sponsor Directory & Resources:
+- 🔗 **Live Hack Club Team Directory:** [hackclub.com/team](https://hackclub.com/team) (Check the *Gap Year* section)
+- 🔗 **YSWS Sponsors List on Slack:** [Hack Club Slack Sponsors List](https://hackclub.enterprise.slack.com/lists/T0266FRGM/F09M93YCM1Q)
+- 💬 **Need advice or feedback on your YSWS?** Check in **\`#ask-the-ysws-orgs\`**!`;
+
+export const SLACK_GUIDE_SOURCES = [
+  { title: 'Slack Communication Guide (Canvas)', url: 'https://app.slack.com/client/E09V59WQY1E/unified-files/doc/F07QCJ61T32', type: 'slack' },
+  { title: 'Hack Club Slack', url: 'https://slack.hackclub.com', type: 'slack' }
+];
+
+export const SLACK_GUIDE_TEXT = `### 💬 Hack Club Slack Communication Guide
+
+Here is the official guide and canvas for how to communicate and use Hack Club Slack:
+🔗 **[Hack Club Slack Communication Guide & Canvas](https://app.slack.com/client/E09V59WQY1E/unified-files/doc/F07QCJ61T32)**
+
+---
+
+### 💡 Key Tips for Talking & Communicating in Slack:
+1. **Use Threads (🧵):** Keep channels clean and readable by replying in threads to specific messages rather than sending new top-level messages.
+2. **Be Polite, Respectful & Kind:** Hack Club is a supportive global community of 50,000+ teen hackers and makers.
+3. **Check the README / Search First:** Before asking questions, use Slack search or check pinned canvases and channel topics.
+4. **Choose the Right Channels:**
+   - **\`#welcome\`** — Say hello and introduce yourself!
+   - **\`#lounge\`** — General conversation and hangouts.
+   - **\`#code\`** — Programming, debugging, and web development.
+   - **\`#hardware\`** — Electronics, PCBs, microcontrollers, and soldering.
+   - **\`#help\`** / **\`#ysws-help\`** — Questions about YSWS programs and orders.
+   - **\`#identity-verification\`** — Verification and ID issues.
+   - **\`#hc-opportunities\`** — Finding volunteer reviewer, fulfiller, and project roles.
+   - **\`#ask-the-ysws-orgs\`** — Advice on running your own YSWS.
+5. **Direct Messages (DMs):** Only DM organizers when appropriate (e.g. following up on specific private tasks). For general help, post in public channels so others can help and learn too!`;
+
 export async function askHacki(userMessage, conversationHistory = []) {
   const query = String(userMessage || '').trim();
   if (!query) {
@@ -45,6 +276,42 @@ export async function askHacki(userMessage, conversationHistory = []) {
       sources: [
         { title: 'Hack Club Slack Help Channels (#ysws-help, #help)', url: 'https://hackclub.slack.com', type: 'slack' }
       ],
+      suggestedQueries: []
+    };
+  }
+
+  // If user is asking how to make / run / host a YSWS
+  if (detectedCategory === 'host_ysws') {
+    return {
+      answer: YSWS_MAKE_RUN_GUIDE,
+      sources: YSWS_MAKE_RUN_SOURCES,
+      suggestedQueries: []
+    };
+  }
+
+  // If user is asking how to get involved in Hack Club / become a member / contribute
+  if (detectedCategory === 'get_involved') {
+    return {
+      answer: GETTING_INVOLVED_GUIDE,
+      sources: GETTING_INVOLVED_SOURCES,
+      suggestedQueries: []
+    };
+  }
+
+  // If user is asking who is sponsoring for YSWS
+  if (detectedCategory === 'ysws_sponsors') {
+    return {
+      answer: YSWS_SPONSORS_GUIDE,
+      sources: YSWS_SPONSORS_SOURCES,
+      suggestedQueries: []
+    };
+  }
+
+  // If user is asking how to use / communicate in Slack or for Slack guide
+  if (detectedCategory === 'slack_guide') {
+    return {
+      answer: SLACK_GUIDE_TEXT,
+      sources: SLACK_GUIDE_SOURCES,
       suggestedQueries: []
     };
   }
@@ -105,13 +372,19 @@ CRITICAL RULES FOR SPECIFIC HACK CLUB QUESTIONS:
    Join Slack (slack.hackclub.com), contribute to open source on GitHub (github.com/hackclub), volunteer as a YSWS reviewer/fulfiller, lead a high school club (hackclub.com/clubs), organize a hackathon with grants up to $500 (hackclub.com/hackathons), or apply as a Teen Contributor / Gappie.
 7. WHAT IS HCB (HACK CLUB BANK):
    Fiscal sponsorship platform for student-led hackathons, clubs, and youth nonprofits with debit cards, 501(c)(3) status, transparent finances.
-8. HOW TO HOST A YSWS (IN DETAIL):
-   Any teenager in Hack Club can host their very own YSWS program backed by Hack Club funding and logistics!
-   - Step 1 (Ideation & Reward): Formulate a creative challenge where teenagers build something original (hardware, games, bots, CLI tools, robotics) and ship it publicly. Choose an exciting physical reward (custom PCB, microcontrollers like RP2040/ESP32, hardware kit, physical swag/stickers, or component grants).
-   - Step 2 (Write Spec & Rubric): Write clear submission criteria (what constitutes a valid ship, demo video, open repo, README), anti-fraud & anti-AI-slop rules, reviewer rubric, and unit budget breakdown (cost per reward + international shipping from HQ).
-   - Step 3 (Pitch to HQ): Share the proposal on Slack in #ysws or #ysws-drafts, or discuss with HQ staff and Gappies in Shelburne, Vermont.
-   - Step 4 (HQ Funding & Logistics): Hack Club officially finances approved community YSWS programs, provides HCB fiscal sponsorship, bulk parts ordering, and worldwide fulfillment support from the Shelburne warehouse.
-   - Step 5 (Launch & Run): Launch the landing page (e.g. beest.hackclub.com or GitHub repo), create a dedicated Slack channel (e.g. #beest), recruit reviewers/fulfillers, and launch to 50,000+ teens!
+8. HOW TO MAKE, RUN, OR HOST A YSWS (THE OFFICIAL COMMUNITY GUIDE BY @SWARIT):
+   When a user asks how to make, run, host, start, or pitch a YSWS:
+   Present the community guide by @Swarit:
+   - Pitch your idea! Send your YSWS idea in #ysws in this format:
+     You ship: (something coding related that the participants ship)
+     We ship: (something with monetary or sentimental value that is related to the you ship)
+     Gather reactions (:upvote: / :downvote:) and constructive feedback in threads. Aim for at least 10-15 upvotes before moving to the next step.
+   - Create a channel! Right-click anywhere in the channel menu on the left side, create a channel named after your YSWS, reply to the pitch thread linking it, and welcome incoming members.
+   - Get some RSVPs! Make a form on build.fillout.com asking for their Slack username (to verify they are real), then /channel ping in your channel to tell everyone to RSVP.
+   - Make a website! Cook up a creative website that "blows our socks off" - @ascpixi to attract sponsors (do not vibecode it!), include a FAQ section and Fillout RSVP link, channel ping to advertise it, and set up a welcomer workflow.
+   - Advertise! Post a fun description in #ysws & #ysws-ads once or twice a week. Note: max once a week in #ysws, or submit to @YSWS Submit to be included in the weekly update in #ysws-bulletin.
+   - Wait for sponsors! Wait for a sponsor to hit you up, or view the sponsor list (https://hackclub.enterprise.slack.com/lists/T0266FRGM/F09M93YCM1Q). Sponsors guide you on next steps and submissions.
+   - Further Questions: #ask-the-ysws-orgs is the best place to get feedback / help on YSWSs you are running!
 9. HOW TO FIND / JOIN A YSWS CHANNEL (e.g. beest.hackclub.com) & SLACK CHANNEL SEARCH FOR NEW MEMBERS:
    - YSWS Channels: Every YSWS has a dedicated Slack channel matching its name (e.g. beest.hackclub.com -> #beest, crescent.hackclub.com -> #crescent, horizons -> #horizons, blot.hackclub.com -> #blot, sprig.hackclub.com -> #sprig). The project website also lists the channel link.
    - SLACK SEARCH DELAY FOR NEW MEMBERS: When fresh new members join Hack Club Slack and try searching for channels using Slack's search bar (Ctrl+K or channel browser), search results frequently say "Not Found" or "No channels found".
@@ -126,7 +399,24 @@ CRITICAL RULES FOR SPECIFIC HACK CLUB QUESTIONS:
    Submit a valid, legible government photo ID (Passport, National ID, Driver's License or Learner's Permit) or current school ID with photo and academic year. Legal name and birthdate must match application. If help or re-verify needed, ask in #ysws-help or #identity-verification.
 11. HOW TO BECOME A GAPPIE:
     Be an active maker, ship YSWS projects, contribute to open source, watch for openings on Slack and hackclub.com/team, connect with current Gappies/HQ staff, and apply with your portfolio.
-12. FORMATTING:
+12. GETTING INVOLVED IN HACK CLUB (THE @QUESO CANVAS):
+    When someone asks how to get involved, contribute, or become a member:
+    Present @queso's canvas:
+    - #hc-opportunities is an entry point, but being proactive is essential.
+    - Proactive people stand out: don't wait to be invited, answer questions in event channels until people notice you.
+    - Only DM organizers for roles you cannot do without permission (e.g. review/fulfillment), don't DM for support where you can help publicly.
+    - Organize a YSWS to gain leadership experience before major events. Don't vibecode an entire platform; commission developers via #bounty and #community-bounties.
+    - General work ethic: Quality over quantity (don't title-collect), delegate based on strengths, take responsibility (stepping down or taking breaks is fine with notice), communicate transparently, hold high quality standards, accept constructive feedback, and be kind/respectful.
+13. WHO IS SPONSORING YSWS:
+    Community YSWS programs are sponsored, guided, and coordinated by the Gap Year team ("Gappies") at Hack Club HQ in Shelburne, Vermont.
+    Names from hackclub.com/team gap year section:
+    Afia Ava, Anson Chung, Antonio Archer, Armand, Barnav Mitra, Beltran, Brendan Reynard, Cisco, David P, Emma, Fiona, Jenny, Joaquin Schere, Johnathan McPhilbin, Jolly Wang, Kai Pereira, Kartikey Chauhan, Katie, Kaylee Dinh, Lela Harkrader, Lewin Kelly, Liam Newbill, Lola, Luke Oldenburg, Max H, Meghana Madiraju, Miguel, Mihir Maroju, Nick Do, Ren Leonard, Rudy, Sebastian Hernandez, Selena Nguyen, Sophia Duan.
+    Sponsors list on Slack: https://hackclub.enterprise.slack.com/lists/T0266FRGM/F09M93YCM1Q
+14. SLACK COMMUNICATION GUIDE:
+    When asking how to use, talk, or communicate in Slack, provide the official canvas link:
+    https://app.slack.com/client/E09V59WQY1E/unified-files/doc/F07QCJ61T32
+    And explain best practices: reply in threads (🧵), be polite and respectful, search before asking, pick the right channels (#lounge, #code, #hardware, #help, #hc-opportunities), and avoid unsolicited DMs to HQ.
+15. FORMATTING:
     Use clean GitHub-flavored markdown with bullet points, bold names, and clickable links.
     Do NOT add follow-up suggestions at the end.`;
 
@@ -203,7 +493,7 @@ async function buildRAGContext(query) {
   const isYSWSHelpQuery = /\b(order|orders|shipping|shipment|fraud|fraud review|re-verify|reverify|tracking number|status of my grant|status of my order|status of my shipment)\b/i.test(q) ||
     (/\bhelp\b/i.test(q) && /\b(ysws|order|shipping|grant|hardware|fraud|verify|verification|rejected)\b/i.test(q));
 
-  if (isYSWSHelpQuery && !/\b(what is ysws|how to host|list ysws)\b/i.test(q)) {
+  if (isYSWSHelpQuery && !/\b(what is ysws|how to host|how to make|how to run|make a ysws|run a ysws|list ysws)\b/i.test(q)) {
     detectedCategory = 'ysws_help';
     sources.push({ title: 'Hack Club Slack Help Channels (#ysws-help, #help)', url: 'https://hackclub.slack.com', type: 'slack' });
     contextParts.push('=== YSWS HELP, ORDERS, FRAUD REVIEW & RE-VERIFICATION RULE ===');
@@ -294,19 +584,15 @@ async function buildRAGContext(query) {
     contextParts.push('');
   }
 
-  // 7. Check How to Contribute
-  const isContributeQuery = /\b(how to contribute|how can i contribute|contribute to hack club|contribute hack club|how to help hack club|volunteer at hack club|get involved)\b/i.test(q);
-  if (isContributeQuery) {
-    sources.push({ title: 'Hack Club Community & Clubs', url: 'https://hackclub.com', type: 'general' });
-    contextParts.push('=== HOW TO CONTRIBUTE TO HACK CLUB ===');
-    contextParts.push('Ways teenagers and community members can contribute:');
-    contextParts.push('1. Join the Slack & Support Peers: Welcome newcomers and help in #lounge, #code, and #hardware (slack.hackclub.com).');
-    contextParts.push('2. Open Source Code: Contribute to Hack Club repos on GitHub (https://github.com/hackclub) — websites, Sprig, Blot, Nest, and developer tools.');
-    contextParts.push('3. Reviewer & Fulfiller: Join reviewer and fulfillment teams for active YSWS programs (check bulletin channels like #phantom-bulletin, #crescent-bulletin, #ysws-ads).');
-    contextParts.push('4. Start a High School Hack Club: Lead a club at your school with Hack Club\'s workshops and support (hackclub.com/clubs).');
-    contextParts.push('5. Organize a Hackathon: Run an event with grants up to $500 and free fiscal sponsorship through HCB (hackclub.com/hackathons).');
-    contextParts.push('6. Teen Contributors & Gappies: Work on core initiatives with HQ.');
-    contextParts.push('');
+  // 7. Check Getting Involved in Hack Club / How to Become a Member / Contribute
+  const isGetInvolvedQuery = /\b(getting involved|get involved|how to get involved|how can i get involved|how do i get involved|how to be(?:come)? (?:a )?(?:hc|hack club) member|become (?:a )?(?:hc|hack club) member|be a member|join hack club|how to contribute|how can i contribute|contribute to hack club|contribute hack club|how to help hack club|volunteer at hack club)\b/i.test(q);
+  if (isGetInvolvedQuery) {
+    return {
+      contextText: GETTING_INVOLVED_GUIDE,
+      sources: GETTING_INVOLVED_SOURCES,
+      detectedCategory: 'get_involved',
+      isOutOfScope: false
+    };
   }
 
   // 8. Check HCB (Hack Club Bank)
@@ -324,23 +610,45 @@ async function buildRAGContext(query) {
     contextParts.push('');
   }
 
-  // 9. Check How to Host a YSWS
-  const isHostYSWSQuery = /\b(how to host a ysws|how to host ysws|host a ysws|host ysws|create a ysws|run a ysws|pitch a ysws|start a ysws)\b/i.test(q);
+  // 9. Check How to Make / Run / Host a YSWS
+  const isHostYSWSQuery = /\b(make|run|host|create|pitch|start|organize|launch)\s+(?:a\s+)?ysws\b/i.test(q) ||
+    /\b(how\s+(?:do\s+i|to|can\s+i|can\s+we|do\s+we)\s+(?:make|run|host|create|pitch|start|organize|launch)\s+(?:a\s+)?ysws)\b/i.test(q) ||
+    /\bysws\s+(?:guide|creation|making|hosting|running)\b/i.test(q) ||
+    (/\bysws\b/i.test(q) && /\b(make|run|host|create|pitch|start|organize)\b/i.test(q) && !/\b(help|order|shipping|fraud|verify)\b/i.test(q));
+
   if (isHostYSWSQuery) {
-    sources.push({ title: 'Hack Club YSWS Catalog', url: 'https://ysws.hackclub.com', type: 'ysws' });
-    contextParts.push('=== HOW TO HOST A YSWS (YOU SHIP, WE SHIP) IN DETAIL ===');
-    contextParts.push('Any teenager in Hack Club can host their very own YSWS program backed by Hack Club funding, mentorship, and logistics!');
-    contextParts.push('Detailed Steps:');
-    contextParts.push('1. Ideation & Reward Concept: Formulate an engaging challenge where teenagers build something creative (software, games, hardware, bots, CLI tools) and publicly ship it. Choose an exciting physical reward (custom PCB, microcontrollers like RP2040/ESP32, hardware kit, physical swag/stickers, or component grants).');
-    contextParts.push('2. Write a Detailed Proposal (Spec & Rubric):');
-    contextParts.push('   - Project criteria and requirements (what constitutes a valid ship, demo video, open-source repo, README).');
-    contextParts.push('   - Anti-fraud and anti-AI-slop policies to ensure original teen work.');
-    contextParts.push('   - Review rubric for volunteer reviewers.');
-    contextParts.push('   - Detailed unit budget breakdown (cost per reward + international packaging and shipping from HQ).');
-    contextParts.push('3. Pitch to Hack Club HQ: Share your proposal in Hack Club Slack in #ysws or #ysws-drafts, or discuss with HQ staff and Gappies in Shelburne, Vermont. HQ regularly reviews and approves community-hosted YSWS initiatives.');
-    contextParts.push('4. HQ Funding & Logistics Backing: Hack Club officially finances approved community YSWS programs, provides HCB fiscal sponsorship, helps order parts in bulk, and assists with worldwide fulfillment from the HQ farmhouse warehouse.');
-    contextParts.push('5. Launch & Community Engagement: Launch the landing page (e.g. beest.hackclub.com or GitHub repo), create a dedicated Slack channel (e.g. #beest), recruit community reviewers and fulfillers, and announce to 50,000+ teens on Slack!');
-    contextParts.push('');
+    return {
+      contextText: YSWS_MAKE_RUN_GUIDE,
+      sources: YSWS_MAKE_RUN_SOURCES,
+      detectedCategory: 'host_ysws',
+      isOutOfScope: false
+    };
+  }
+
+  // 9b. Check Who is Sponsoring YSWS
+  const isYSWSSponsorQuery = /\b(who (?:is |are )?(?:sponsoring|sponsors|sponsor)(?: for)? ysws|who sponsors a ysws|who are (?:the )?ysws sponsors|ysws sponsor|ysws sponsors)\b/i.test(q) ||
+    (/\bysws\b/i.test(q) && /\b(sponsor|sponsors|sponsoring)\b/i.test(q) && !/\b(bank|fiscal)\b/i.test(q));
+
+  if (isYSWSSponsorQuery) {
+    return {
+      contextText: YSWS_SPONSORS_GUIDE,
+      sources: YSWS_SPONSORS_SOURCES,
+      detectedCategory: 'ysws_sponsors',
+      isOutOfScope: false
+    };
+  }
+
+  // 9c. Check Slack Communication Guide / How to use Slack
+  const isSlackGuideQuery = /\b(how to (?:use|communicate in|communicate on|talk in|talk on) slack|how do (?:i|you|we) (?:use|communicate in|talk in) slack|guide for slack|slack guide|guide to slack|communicate in slack|how to talk in slack)\b/i.test(q) ||
+    (/\bslack\b/i.test(q) && /\b(guide|communicate|communication|how to use|how to talk)\b/i.test(q));
+
+  if (isSlackGuideQuery) {
+    return {
+      contextText: SLACK_GUIDE_TEXT,
+      sources: SLACK_GUIDE_SOURCES,
+      detectedCategory: 'slack_guide',
+      isOutOfScope: false
+    };
   }
 
   // 10. Check How to Find / Join YSWS Channel (e.g. beest.hackclub.com) & Slack Search for New Members
@@ -502,7 +810,7 @@ async function buildRAGContext(query) {
   // 16. Strict Out-of-Scope check
   const hasHackClubKeywords = /\b(hack club|hackclub|hacki|hc|hcb|ysws|you ship|gappie|gappies|gap year|gap years|slack|grant|grants|hardware|ship|shipping|crescent|horizons|macondo|phantom|sprig|onboard|blot|cider|boba|arcade|high seas|vermont|shelburne|ketan|zach|latta|christina|asquith|euan|ripper|club|clubs|hackathon|hackathons|maker|bounty|stipend|tools|tool|nest|ai\.hackclub|hackclub\.app|verify|verification|id|contribute|host|where is hq)\b/i.test(q);
   const isGreeting = /^(hi|hello|hey|yo|greetings|help|who are you|what can you do)[\s!?.]*$/i.test(q.trim());
-  const hasDomainMatches = matchedMembers.length > 0 || matchedYSWS.length > 0 || searchItems.length > 0 || isCreatorQuery || isGappieQuery || isEuanQuery || isGeneralHackClub || isFreeToolsQuery || isYSWSHelpQuery || isHQQuery || isHCBQuery || isHostYSWSQuery || isVerifyIDQuery || isContributeQuery || isBecomeGappieQuery || isHackiQuery;
+  const hasDomainMatches = matchedMembers.length > 0 || matchedYSWS.length > 0 || searchItems.length > 0 || isCreatorQuery || isGappieQuery || isEuanQuery || isGeneralHackClub || isFreeToolsQuery || isYSWSHelpQuery || isHQQuery || isHCBQuery || isHostYSWSQuery || isVerifyIDQuery || isBecomeGappieQuery || isHackiQuery || isGetInvolvedQuery || isYSWSSponsorQuery || isSlackGuideQuery;
 
   const isExplicitlyOffTopic = /\b(math|solve|integral|derivative|equation|capital of|recipe|bake|cook|cooking|poem|essay|homework|president of|prime minister|football|cricket|fifa|movie|actor|actress|weather in|who is elon|elon musk|donald trump|joe biden|barack obama|currency of|population of|distance to|speed of light)\b/i.test(q);
 
@@ -571,10 +879,10 @@ function fallbackResponse(query, contextText, sources, category) {
     };
   }
 
-  if (q.includes('host a ysws') || q.includes('host ysws') || (q.includes('host') && q.includes('ysws'))) {
+  if (category === 'host_ysws' || /\b(make|run|host|create|pitch|start)\s+(?:a\s+)?ysws\b/i.test(q) || (q.includes('ysws') && (q.includes('make') || q.includes('run') || q.includes('host') || q.includes('pitch') || q.includes('start')))) {
     return {
-      answer: `### 🚀 How to Host Your Own YSWS Program (In Detail)\n\nAny teenager in Hack Club can organize and run their very own **YSWS (You Ship, We Ship)** program backed by Hack Club funding, mentorship, and logistics!\n\nHere is the complete step-by-step process:\n\n1. 💡 **Ideation & Reward Concept:**\n   - Formulate a fun, creative challenge where teenagers build something original (hardware, robotics, web apps, games, bots, or developer tools) and ship it publicly.\n   - Pick an enticing physical reward or grant (e.g. custom PCBs, microcontrollers like RP2040/ESP32, hardware dev kits, custom swag/stickers, or component grants).\n\n2. 📝 **Write a Detailed Proposal (Spec & Rubric):**\n   - **Project Criteria:** What qualifies as a valid "ship" (e.g., public GitHub repository, working demo video, clear README, and genuine effort).\n   - **Anti-Fraud & Anti-AI-Slop Policy:** Define rules to prevent plagiarized or low-effort AI-generated projects.\n   - **Review Rubric:** Clear evaluation guidelines for your volunteer review team.\n   - **Budget Breakdown:** Estimate number of participants, unit reward cost, packaging, and worldwide shipping.\n\n3. 🎤 **Pitch to Hack Club HQ:**\n   - Share your proposal in Hack Club Slack in **\`#ysws\`** or **\`#ysws-drafts\`**, or discuss your idea with HQ staff and Gappies in **\`#lounge\`**.\n   - Hack Club leaders and Gappies in Shelburne, Vermont review proposals regularly and approve community-hosted programs!\n\n4. 💰 **HQ Funding & Logistics Backing:**\n   - Once approved, Hack Club officially finances your YSWS program through **Hack Club Bank (HCB)**.\n   - HQ assists with bulk purchasing of hardware parts, tax exemptions, and global shipping fulfillment directly from the Vermont warehouse.\n\n5. 🚀 **Launch & Community Engagement:**\n   - Launch the landing page (e.g. \`beest.hackclub.com\` or GitHub repo).\n   - Create a dedicated Slack channel (e.g. **\`#beest\`**).\n   - Recruit and train community reviewers and fulfillers.\n   - Announce the program to 50,000+ teen hackers on Slack!`,
-      sources: [{ title: 'Hack Club YSWS Catalog', url: 'https://ysws.hackclub.com', type: 'ysws' }],
+      answer: YSWS_MAKE_RUN_GUIDE,
+      sources: YSWS_MAKE_RUN_SOURCES,
       suggestedQueries: []
     };
   }
@@ -595,10 +903,26 @@ function fallbackResponse(query, contextText, sources, category) {
     };
   }
 
-  if (q.includes('contribute')) {
+  if (category === 'get_involved' || /\b(getting involved|get involved|become (?:a )?(?:hc |hack club )?member|be a member|contribute)\b/i.test(q)) {
     return {
-      answer: `### 🤝 How to Contribute to Hack Club\n\nThere are many awesome ways for teenagers and community members to contribute to Hack Club:\n\n1. **Join the Slack & Help Peers:** Hang out in \`#lounge\`, \`#code\`, and \`#hardware\`, answer questions, and welcome new members at [slack.hackclub.com](https://slack.hackclub.com).\n2. **Contribute to Open Source:** All Hack Club projects are open source on GitHub ([github.com/hackclub](https://github.com/hackclub)) — websites, Sprig, Blot, Nest, and developer tools.\n3. **Become a YSWS Reviewer or Fulfiller:** Help review submissions or pack/test hardware for active YSWS programs. Watch bulletin channels like \`#phantom-bulletin\`, \`#crescent-bulletin\`, \`#horizons-bulletin\`, and \`#ysws-ads\` for open calls.\n4. **Start or Lead a High School Hack Club:** Lead a coding club at your school with Hack Club's workshops and support ([hackclub.com/clubs](https://hackclub.com/clubs)).\n5. **Host a Hackathon:** Organize a local or online hackathon with up to $500 in grants and free fiscal sponsorship through Hack Club Bank ([hackclub.com/hackathons](https://hackclub.com/hackathons)).\n6. **Apply as a Teen Contributor or Gappie:** High schoolers and gap year students can work directly with HQ on core initiatives.`,
-      sources: [{ title: 'Hack Club Community & Clubs', url: 'https://hackclub.com', type: 'general' }],
+      answer: GETTING_INVOLVED_GUIDE,
+      sources: GETTING_INVOLVED_SOURCES,
+      suggestedQueries: []
+    };
+  }
+
+  if (category === 'ysws_sponsors' || /\b(who (?:is |are )?(?:sponsoring|sponsors)|sponsor.*ysws)\b/i.test(q)) {
+    return {
+      answer: YSWS_SPONSORS_GUIDE,
+      sources: YSWS_SPONSORS_SOURCES,
+      suggestedQueries: []
+    };
+  }
+
+  if (category === 'slack_guide' || (q.includes('slack') && (q.includes('guide') || q.includes('communicate') || q.includes('talk') || q.includes('how to use')))) {
+    return {
+      answer: SLACK_GUIDE_TEXT,
+      sources: SLACK_GUIDE_SOURCES,
       suggestedQueries: []
     };
   }

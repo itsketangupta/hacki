@@ -35,23 +35,14 @@ document.addEventListener('DOMContentLoaded', () => {
     marked.setOptions({ breaks: true, gfm: true });
   }
 
-  // User-scoped chat storage key
+  // User-scoped chat storage key (supports authenticated users and guests)
   function getChatStorageKey() {
-    if (!currentUser) return null;
-    const uid = currentUser.id || currentUser.email || 'user';
+    const uid = currentUser ? (currentUser.id || currentUser.email || 'user') : 'guest';
     return `hacki_chats_${uid}`;
   }
 
-  // Load chats for current authenticated user
+  // Load chats for current authenticated user or guest
   function loadStoredChats() {
-    if (!currentUser) {
-      chats = [];
-      currentChatId = null;
-      renderChatHistorySidebar();
-      renderCurrentChat();
-      return;
-    }
-
     const key = getChatStorageKey();
     try {
       const raw = localStorage.getItem(key);
@@ -83,7 +74,6 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function saveStoredChats() {
-    if (!currentUser) return;
     const key = getChatStorageKey();
     if (!key) return;
     try {
@@ -95,10 +85,6 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function createNewChat() {
-    if (!currentUser) {
-      showAuthModal();
-      return;
-    }
     const newChat = {
       id: 'chat_' + Date.now(),
       title: 'New chat',
@@ -226,11 +212,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Messaging
   async function handleSend(text) {
-    if (!currentUser) {
-      showAuthModal();
-      return;
-    }
-
     const message = (text || chatInput.value).trim();
     if (!message || isSending) return;
 
@@ -451,9 +432,19 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function hideAuthModal() {
-    if (currentUser && authModalBackdrop) {
+    if (authModalBackdrop) {
       authModalBackdrop.style.display = 'none';
     }
+  }
+
+  const authModalCloseBtn = document.getElementById('auth-modal-close-btn');
+  if (authModalCloseBtn) {
+    authModalCloseBtn.addEventListener('click', hideAuthModal);
+  }
+
+  const authModalGuestBtn = document.getElementById('auth-modal-guest-btn');
+  if (authModalGuestBtn) {
+    authModalGuestBtn.addEventListener('click', hideAuthModal);
   }
 
   if (topbarLoginBtn) {
@@ -544,26 +535,24 @@ document.addEventListener('DOMContentLoaded', () => {
           }
         }
       } else {
-        // Not logged in -> Show mandatory login modal, clear chats
+        // Not logged in -> Guest mode (bot is fully messageable!)
         currentUser = null;
         loadStoredChats();
-        showAuthModal();
-        chatInput.disabled = true;
-        chatInput.placeholder = 'Please sign in with Hack Club to chat...';
-        sendBtn.disabled = true;
+        chatInput.disabled = false;
+        chatInput.placeholder = 'Message Hacki...';
+        sendBtn.disabled = !chatInput.value.trim();
         if (authLoginBtn) authLoginBtn.style.display = 'flex';
         if (topbarLoginBtn) topbarLoginBtn.style.display = 'block';
         if (userProfileCard) userProfileCard.style.display = 'none';
         if (userSlackTag) userSlackTag.style.display = 'none';
       }
     } catch {
-      // Failed to reach auth endpoint -> Prompt login pop-up, clear chats
+      // Failed to reach auth endpoint -> Guest mode (bot is fully messageable!)
       currentUser = null;
       loadStoredChats();
-      showAuthModal();
-      chatInput.disabled = true;
-      chatInput.placeholder = 'Please sign in with Hack Club to chat...';
-      sendBtn.disabled = true;
+      chatInput.disabled = false;
+      chatInput.placeholder = 'Message Hacki...';
+      sendBtn.disabled = !chatInput.value.trim();
       if (authLoginBtn) authLoginBtn.style.display = 'flex';
       if (topbarLoginBtn) topbarLoginBtn.style.display = 'block';
       if (userProfileCard) userProfileCard.style.display = 'none';

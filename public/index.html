@@ -145,9 +145,9 @@
               <span class="prompt-icon">💳</span>
               <span class="prompt-text">What is HCB?</span>
             </button>
-            <button class="empty-prompt-card" data-query="How to host a YSWS?">
-              <span class="prompt-icon">📦</span>
-              <span class="prompt-text">How to host a YSWS?</span>
+            <button class="empty-prompt-card" data-query="How do I make a YSWS?">
+              <span class="prompt-icon">🚀</span>
+              <span class="prompt-text">How to make a YSWS?</span>
             </button>
             <button class="empty-prompt-card" data-query="How to verify ID?">
               <span class="prompt-icon">🪪</span>
@@ -200,9 +200,10 @@
     </main>
   </div>
 
-  <!-- Mandatory Welcome / Login Pop-Up Modal -->
+  <!-- Welcome / Login Modal -->
   <div class="auth-modal-backdrop" id="auth-modal-backdrop" style="display: none;">
     <div class="auth-modal-card">
+      <button class="auth-modal-close" id="auth-modal-close-btn" title="Close">✕</button>
       <div class="auth-modal-header">
         <div class="auth-modal-logo-wrapper">
           <img src="hacki-logo.png" alt="Hacki Logo" class="auth-modal-logo">
@@ -240,6 +241,9 @@
           <img src="hackclub-flag.svg" alt="" class="auth-modal-btn-flag">
           <span>Sign in with Hack Club</span>
         </a>
+        <button type="button" class="auth-modal-guest-btn" id="auth-modal-guest-btn">
+          Continue as Guest &rarr;
+        </button>
       </div>
 
       <div class="auth-modal-footer">
