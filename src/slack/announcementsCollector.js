@@ -138,31 +138,65 @@ export async function initSlackCollector() {
   }
 }
 
-// Channels to JOIN for data collection — must match precisely
-// Only bulletin/announcement/opportunity channels, NOT personal project channels
+// ---------------------------------------------------------------------------
+// Channel join rules
+// ---------------------------------------------------------------------------
+
+// Any channel whose name CONTAINS one of these substrings → auto-join
 const JOIN_KEYWORDS = [
-  'bulletin',       // beest-bulletin, crescent-bulletin, phantom-bulletin, venture-bulletin, tagless-bulletin, zoneout-announcement etc.
-  'announcements',  // announcements, terra-announcements, zoneout-announcements
+  // Bulletin channels (all YSWS program bulletins follow *-bulletin pattern)
+  'bulletin',
+
+  // Announcement channels
+  'announcements',
   'announcement',
-  'happenings',     // happenings (official HQ channel)
-  'opportunities',  // hc-opportunities
-  'opportunity',
-  'bounty',         // bounty, community-bounties
-  'bounties',
-  'hiring',         // hiring channels
+
+  // Opportunity / hiring
+  'opportunities',
+  'opportunity',    // catches hc-opportunity, hc-opportunities
+  'hiring',
   'jobs',
+  'careers',
+
+  // Specific Hack Club channel families
+  'happenings',     // #happenings — official HQ channel
+  'bounty',         // #bounty, #community-bounties
+  'bounties',
+  'slacker',        // #slacker-news
+  'mothership',     // #the-mothership
+
+  // YSWS program family (catches ysws-ads, ysws-bulletin, ysws-drops, etc.)
+  'ysws',
 ];
 
-// Exact channel names to always join (whitelist)
-const JOIN_EXACT = [
-  'ysws',           // #ysws (main YSWS channel, not sub-channels)
-  'ysws-ads',       // #ysws-ads (YSWS advertisements)
-  'ysws-bulletin',  // #ysws-bulletin
-];
+// Exact channel names that must ALWAYS be joined regardless of keyword match
+const JOIN_EXACT = new Set([
+  'ysws',
+  'ysws-ads',
+  'ysws-bulletin',
+  'ysws-drops',
+  'hc-opportunities',
+  'hc-opportunity',
+  'happenings',
+  'announcements',
+  'bounty',
+  'community-bounties',
+  'slacker-news',
+  'the-mothership',
+  'phantom-bulletin',
+  'crescent-bulletin',
+  'horizons-bulletin',
+  'macondo-bulletin',
+  'pixl-bulletin',
+  'tagless-bulletin',
+  'venture-bulletin',
+  'zoneout-announcements',
+  'terra-announcements',
+]);
 
-// Prefixes/patterns to NEVER join (personal projects, help channels, etc.)
+// Channel name substrings that are NEVER joined (too noisy / off-topic)
 const SKIP_PATTERNS = [
-  '-help',          // crescent-help, horizons-help etc
+  '-help',
   '-discussion',
   '-general',
   '-chat',
@@ -178,6 +212,8 @@ const SKIP_PATTERNS = [
   '-dev',
   '-testing',
   '-test',
+  '-random',
+  '-off-topic',
 ];
 
 function shouldJoinChannel(name) {
@@ -186,14 +222,14 @@ function shouldJoinChannel(name) {
   // Never join channels matching skip patterns
   if (SKIP_PATTERNS.some(p => n.includes(p))) return false;
 
-  // Always join exact matches
-  if (JOIN_EXACT.includes(n)) return true;
+  // Always join exact matches (whitelist)
+  if (JOIN_EXACT.has(n)) return true;
 
-  // Join if name contains a bulletin/announcement keyword
-  if (JOIN_KEYWORDS.some(kw => n.includes(kw))) return true;
-
-  // Join if in approved channels config
+  // Always join channels listed in SLACK_APPROVED_CHANNELS env var
   if (config.approvedChannels.includes(n)) return true;
+
+  // Join if the channel name contains any monitored keyword
+  if (JOIN_KEYWORDS.some(kw => n.includes(kw))) return true;
 
   return false;
 }
