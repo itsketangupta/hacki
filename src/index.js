@@ -53,15 +53,15 @@ async function start() {
     console.warn(`[Hacki] Data load notice: ${err.message}`);
   }
 
-  // 2. Initialize Slack collector & bot
-  await initSlackCollector();
-  await initSlackBot();
-
-  // 3. Start Express server
+  // 2. Start Express server first so it's always responsive
   const server = app.listen(config.port, '0.0.0.0', () => {
     console.log(`[Hacki] Server is live at http://localhost:${config.port}`);
     console.log(`[Hacki] Ready to answer questions about Hack Club!`);
   });
+
+  // 3. Initialize Slack collector & bot in background (non-blocking)
+  initSlackCollector().catch(err => console.warn('[Hacki] Slack collector init warning:', err.message));
+  initSlackBot().catch(err => console.warn('[Hacki] Slack bot init warning:', err.message));
 
   // Background refresh of team & YSWS data every 6 hours
   setInterval(() => {

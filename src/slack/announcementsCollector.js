@@ -6,7 +6,10 @@ let cachedAnnouncements = [];
 let slackApp = null;
 let syncTimer = null;
 
-// Heuristics for reviewer / fulfiller / opportunity identification
+// ---------------------------------------------------------------------------
+// Text helpers
+// ---------------------------------------------------------------------------
+
 const HIRING_REGEX = /\b(look(?:ing)? for|need(?:s)?|recruit(?:ing)?|hir(?:ing|e)|join (?:the|our) team|applications? (?:open|available|link)|call for|accepting)\b[\s\S]{0,100}\b(review(?:er|ers|ing)|fulfill(?:er|ers|ment)|organiz(?:er|ers)|mentor(?:s)?|volunteer(?:s)?|gap year|intern(?:s)?)\b/i;
 const OPPORTUNITY_REGEX = /\b(stipend|grant|scholarship|flight|visa letter|deadline|shop drop|shop items?|hyper[- ]?chroma|submission|bounty)\b/i;
 const YSWS_REGEX = /\b(ysws|you ship we ship|new project|launch(?:ed)?|crescent|phantom|horizons|macondo|pixl)\b/i;
@@ -28,19 +31,16 @@ function classifyAnnouncement(text = '', channel = '') {
   const isHiring = HIRING_REGEX.test(text);
   const isOpportunity = OPPORTUNITY_REGEX.test(text);
   const isYSWS = YSWS_REGEX.test(text) || channel.includes('ysws');
-
   const tags = [];
   if (isHiring) tags.push('hiring');
   if (isOpportunity) tags.push('opportunity');
   if (isYSWS) tags.push('ysws');
-
-  return {
-    isHiring,
-    isOpportunity,
-    isYSWS,
-    tags: tags.length ? tags : ['announcement']
-  };
+  return { isHiring, isOpportunity, isYSWS, tags: tags.length ? tags : ['announcement'] };
 }
+
+// ---------------------------------------------------------------------------
+// Announcement cache helpers
+// ---------------------------------------------------------------------------
 
 export async function loadAnnouncements() {
   if (cachedAnnouncements && cachedAnnouncements.length > 0) return cachedAnnouncements;
@@ -50,11 +50,7 @@ export async function loadAnnouncements() {
     cachedAnnouncements = items.map(item => {
       const fullText = `${item.title || ''}\n${item.summary || item.slackSummary || ''}`;
       const classification = classifyAnnouncement(fullText, item.channel || '');
-      return {
-        ...item,
-        ...classification,
-        cleanText: cleanSlackText(item.summary || item.slackSummary || item.title || '')
-      };
+      return { ...item, ...classification, cleanText: cleanSlackText(item.summary || item.slackSummary || item.title || '') };
     });
     return cachedAnnouncements;
   } catch {
@@ -83,112 +79,61 @@ export async function searchAnnouncements(query = '') {
   const all = await loadAnnouncements();
   const q = query.toLowerCase().trim();
   if (!q) return all.slice(0, 15);
-
   return all.filter(item => {
     const text = `${item.title || ''} ${item.summary || ''} ${item.channel || ''}`.toLowerCase();
     return text.includes(q);
   });
 }
 
-export async function initSlackCollector() {
-  if (!config.enableSlackSync || !config.slackBotToken) {
-    console.log('[SlackCollector] Slack sync disabled or tokens missing. Using cached announcements.');
-    await loadAnnouncements();
-    return;
-  }
-
-  try {
-    slackApp = new App({
-      token: config.slackBotToken,
-      appToken: config.slackAppToken,
-      socketMode: Boolean(config.slackAppToken),
-      clientOptions: { retryConfig: { retries: 0 } }
-    });
-
-    console.log('[SlackCollector] Initialized Slack bolt client.');
-    await loadAnnouncements();
-
-    // Auto-join any newly created channel that matches our keywords
-    slackApp.event('channel_created', async ({ event }) => {
-      const name = (event.channel?.name || '').toLowerCase();
-      if (shouldJoinChannel(name)) {
-        try {
-          await slackApp.client.conversations.join({ channel: event.channel.id });
-          console.log(`[SlackCollector] Auto-joined newly created #${name}`);
-        } catch (err) {
-          console.warn(`[SlackCollector] Could not join new #${name}: ${err.data?.error || err.message}`);
-        }
-      }
-    });
-
-    // 1. Join ALL existing matching channels in background (non-blocking)
-    // This catches old bulletin/ysws/opportunity channels created before the bot joined
-    joinAllExistingChannels().catch(err => {
-      console.warn('[SlackCollector] joinAllExistingChannels warning:', err.message);
-    });
-
-    // 2. Run channel sync once on start, then periodically
-    syncPublicAnnouncements().catch(err => {
-      console.warn(`[SlackCollector] Initial channel sync warning: ${err.message}`);
-    });
-
-    syncTimer = setInterval(() => {
-      syncPublicAnnouncements().catch(err => {
-        console.warn(`[SlackCollector] Periodic sync warning: ${err.message}`);
-      });
-    }, config.slackSyncIntervalMs);
-
-  } catch (error) {
-    console.warn(`[SlackCollector] Could not initialize Slack client: ${error.message}`);
-    await loadAnnouncements();
-  }
-}
-
 // ---------------------------------------------------------------------------
-// Channel join rules
+// Channel join rules — MUST be declared before any function that uses them
 // ---------------------------------------------------------------------------
 
-// Any channel whose name CONTAINS one of these substrings → auto-join
+/**
+ * Channel name must CONTAIN one of these substrings to be auto-joined.
+ * This catches entire families like ysws-*, *-bulletin, *-announcement, etc.
+ */
 const JOIN_KEYWORDS = [
-  // Bulletin channels (all YSWS program bulletins follow *-bulletin pattern)
-  'bulletin',
-
-  // Announcement channels
+  'bulletin',       // phantom-bulletin, crescent-bulletin, any-new-ysws-bulletin
+  'announcement',   // announcements, zoneout-announcements, terra-announcements
   'announcements',
-  'announcement',
-
-  // Opportunity / hiring
+  'opportunity',    // hc-opportunity, hc-opportunities, opportunities
   'opportunities',
-  'opportunity',    // catches hc-opportunity, hc-opportunities
   'hiring',
   'jobs',
   'careers',
-
-  // Specific Hack Club channel families
-  'happenings',     // #happenings — official HQ channel
+  'happenings',     // #happenings
   'bounty',         // #bounty, #community-bounties
   'bounties',
   'slacker',        // #slacker-news
   'mothership',     // #the-mothership
-
-  // YSWS program family (catches ysws-ads, ysws-bulletin, ysws-drops, etc.)
-  'ysws',
+  'ysws',           // #ysws, #ysws-ads, #ysws-bulletin, #ysws-drops, #ysws-anything
 ];
 
-// Exact channel names that must ALWAYS be joined regardless of keyword match
+/**
+ * Exact channel names that are ALWAYS joined — whitelist.
+ * Use this for channels whose names don't contain a keyword above.
+ */
 const JOIN_EXACT = new Set([
+  // YSWS family
   'ysws',
   'ysws-ads',
   'ysws-bulletin',
   'ysws-drops',
+  // Opportunity / hiring
   'hc-opportunities',
   'hc-opportunity',
+  'opportunities',
+  // Official HQ
   'happenings',
   'announcements',
+  // Bounties
   'bounty',
   'community-bounties',
+  // Misc official
   'slacker-news',
   'the-mothership',
+  // YSWS program bulletins
   'phantom-bulletin',
   'crescent-bulletin',
   'horizons-bulletin',
@@ -196,11 +141,15 @@ const JOIN_EXACT = new Set([
   'pixl-bulletin',
   'tagless-bulletin',
   'venture-bulletin',
+  // Other announcement channels
   'zoneout-announcements',
   'terra-announcements',
 ]);
 
-// Channel name substrings that are NEVER joined (too noisy / off-topic)
+/**
+ * Channel name substrings that are NEVER joined even if a keyword matches.
+ * These are too noisy or off-topic.
+ */
 const SKIP_PATTERNS = [
   '-help',
   '-discussion',
@@ -222,35 +171,43 @@ const SKIP_PATTERNS = [
   '-off-topic',
 ];
 
+/**
+ * Returns true if the bot should join / monitor this channel.
+ * @param {string} name  Raw channel name (without #)
+ */
 function shouldJoinChannel(name) {
-  const n = name.toLowerCase();
+  const n = name.toLowerCase().replace(/^#/, '');
 
-  // Never join channels matching skip patterns
+  // Hard skip — never join these
   if (SKIP_PATTERNS.some(p => n.includes(p))) return false;
 
-  // Always join exact matches (whitelist)
+  // Exact whitelist — always join these
   if (JOIN_EXACT.has(n)) return true;
 
-  // Always join channels listed in SLACK_APPROVED_CHANNELS env var
+  // Env-var approved channels — always join
   if (config.approvedChannels.includes(n)) return true;
 
-  // Join if the channel name contains any monitored keyword
+  // Keyword substring match — join anything containing these words
   if (JOIN_KEYWORDS.some(kw => n.includes(kw))) return true;
 
   return false;
 }
 
+// ---------------------------------------------------------------------------
+// Startup: join every existing matching channel (runs once in background)
+// ---------------------------------------------------------------------------
+
 /**
- * One-time startup task: paginate ALL public channels in the workspace,
- * filter by shouldJoinChannel, and join every matching one the bot isn't
- * already a member of. This catches every old bulletin/ysws/opportunity
- * channel that existed before the bot was added to the workspace.
+ * Paginates through ALL public channels in the workspace and joins every one
+ * that matches shouldJoinChannel(). Handles channels that existed before the
+ * bot was installed — runs non-blocking in the background at startup.
  */
 async function joinAllExistingChannels() {
   if (!slackApp) return;
-  console.log('[SlackCollector] Scanning all existing channels to join matching ones...');
+  console.log('[SlackCollector] Scanning ALL existing channels to join matching ones...');
 
   try {
+    // Paginate through every public channel in the workspace
     let allChannels = [];
     let cursor;
     do {
@@ -264,35 +221,57 @@ async function joinAllExistingChannels() {
       cursor = listRes.response_metadata?.next_cursor;
     } while (cursor);
 
+    console.log(`[SlackCollector] Total public channels in workspace: ${allChannels.length}`);
+
     const targets = allChannels.filter(c => shouldJoinChannel(c.name));
-    console.log(`[SlackCollector] Found ${targets.length} channels to join: ${targets.map(c => '#' + c.name).join(', ')}`);
+    console.log(`[SlackCollector] Channels matching join rules (${targets.length}): ${targets.map(c => '#' + c.name).join(', ')}`);
 
     let joined = 0;
     let alreadyIn = 0;
+    let failed = 0;
+
     for (const ch of targets) {
-      if (ch.is_member) { alreadyIn++; continue; }
+      if (ch.is_member) {
+        alreadyIn++;
+        continue;
+      }
       try {
         await slackApp.client.conversations.join({ channel: ch.id });
-        console.log(`[SlackCollector] Joined existing channel #${ch.name}`);
+        console.log(`[SlackCollector] ✓ Joined #${ch.name} (${ch.id})`);
         joined++;
       } catch (err) {
         const code = err.data?.error || err.message;
-        if (code === 'already_in_channel') { alreadyIn++; continue; }
-        console.warn(`[SlackCollector] Could not join #${ch.name}: ${code}`);
+        if (code === 'already_in_channel') {
+          alreadyIn++;
+          continue;
+        }
+        // method_not_supported_for_channel_type = private channel listed as public
+        // cant_join_channel = invite-only
+        console.warn(`[SlackCollector] ✗ Could not join #${ch.name}: ${code}`);
+        failed++;
       }
     }
-    console.log(`[SlackCollector] Channel join complete — joined: ${joined}, already member: ${alreadyIn}`);
+
+    console.log(
+      `[SlackCollector] Channel join complete — ` +
+      `joined: ${joined}, already member: ${alreadyIn}, failed: ${failed}`
+    );
   } catch (err) {
     console.warn('[SlackCollector] joinAllExistingChannels error:', err.message);
   }
 }
 
+// ---------------------------------------------------------------------------
+// Periodic sync: fetch new messages from all joined channels
+// ---------------------------------------------------------------------------
+
 async function syncPublicAnnouncements() {
   if (!slackApp) return;
-  console.log('[SlackCollector] Checking Slack public announcement channels for new updates...');
+  console.log('[SlackCollector] Checking Slack announcement channels for new messages...');
 
   try {
-    // Paginate through ALL channels in the workspace
+    // Use conversations.list with types=public_channel to get all public channels
+    // Then filter to ones the bot is already a member of for history fetch
     let allChannels = [];
     let cursor;
     do {
@@ -306,22 +285,19 @@ async function syncPublicAnnouncements() {
       cursor = listRes.response_metadata?.next_cursor;
     } while (cursor);
 
-    // Keywords that identify channels Hacki should join and monitor
     const channels = allChannels.filter(c => shouldJoinChannel(c.name));
+    console.log(`[SlackCollector] Monitoring ${channels.length} channels: ${channels.map(c => '#' + c.name).join(', ')}`);
 
-    console.log(`[SlackCollector] Found ${channels.length} matching channels to monitor: ${channels.map(c => '#' + c.name).join(', ')}`);
-
-    // Ensure bot is still a member of every matching channel
-    // (handles cases where bot was manually removed)
+    // Re-join any channel the bot was removed from since last sync
     for (const ch of channels) {
       if (!ch.is_member) {
         try {
           await slackApp.client.conversations.join({ channel: ch.id });
           console.log(`[SlackCollector] Re-joined #${ch.name}`);
-        } catch (joinErr) {
-          const errCode = joinErr.data?.error || joinErr.message;
-          if (errCode !== 'already_in_channel') {
-            console.warn(`[SlackCollector] Could not re-join #${ch.name}: ${errCode}`);
+        } catch (err) {
+          const code = err.data?.error || err.message;
+          if (code !== 'already_in_channel') {
+            console.warn(`[SlackCollector] Could not re-join #${ch.name}: ${code}`);
           }
         }
       }
@@ -346,7 +322,6 @@ async function syncPublicAnnouncements() {
           const text = cleanSlackText(msg.text);
           const classification = classifyAnnouncement(text, ch.name);
 
-          // Only keep announcements, opportunities, or news
           if (classification.isHiring || classification.isOpportunity || classification.isYSWS || text.length > 80) {
             current.unshift({
               id,
@@ -366,19 +341,76 @@ async function syncPublicAnnouncements() {
             newCount++;
           }
         }
-      } catch (err) {
-        // May lack access to some channels, safe to ignore
+      } catch {
+        // No access yet — will be joined next cycle
       }
     }
 
     if (newCount > 0) {
       current.sort((a, b) => Number(b.timestamp) - Number(a.timestamp));
       await saveAnnouncements(current);
-      console.log(`[SlackCollector] Synced ${newCount} new Slack announcements!`);
+      console.log(`[SlackCollector] Synced ${newCount} new announcements.`);
     } else {
-      console.log('[SlackCollector] Announcements are up-to-date.');
+      console.log('[SlackCollector] Announcements up-to-date.');
     }
   } catch (error) {
     console.warn(`[SlackCollector] Announcement sync skipped: ${error.message}`);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Init
+// ---------------------------------------------------------------------------
+
+export async function initSlackCollector() {
+  if (!config.enableSlackSync || !config.slackBotToken) {
+    console.log('[SlackCollector] Slack sync disabled or tokens missing. Using cached announcements.');
+    await loadAnnouncements();
+    return;
+  }
+
+  try {
+    slackApp = new App({
+      token: config.slackBotToken,
+      appToken: config.slackAppToken,
+      socketMode: Boolean(config.slackAppToken),
+      clientOptions: { retryConfig: { retries: 0 } }
+    });
+
+    console.log('[SlackCollector] Initialized Slack bolt client.');
+    await loadAnnouncements();
+
+    // Auto-join any NEW channel the moment it's created
+    slackApp.event('channel_created', async ({ event }) => {
+      const name = (event.channel?.name || '').toLowerCase();
+      if (shouldJoinChannel(name)) {
+        try {
+          await slackApp.client.conversations.join({ channel: event.channel.id });
+          console.log(`[SlackCollector] Auto-joined new channel #${name}`);
+        } catch (err) {
+          console.warn(`[SlackCollector] Could not join new #${name}: ${err.data?.error || err.message}`);
+        }
+      }
+    });
+
+    // Join all existing matching channels in background (non-blocking)
+    joinAllExistingChannels().catch(err => {
+      console.warn('[SlackCollector] joinAllExistingChannels warning:', err.message);
+    });
+
+    // Fetch announcements from all joined channels, then repeat every interval
+    syncPublicAnnouncements().catch(err => {
+      console.warn(`[SlackCollector] Initial sync warning: ${err.message}`);
+    });
+
+    syncTimer = setInterval(() => {
+      syncPublicAnnouncements().catch(err => {
+        console.warn(`[SlackCollector] Periodic sync warning: ${err.message}`);
+      });
+    }, config.slackSyncIntervalMs);
+
+  } catch (error) {
+    console.warn(`[SlackCollector] Could not initialize Slack client: ${error.message}`);
+    await loadAnnouncements();
   }
 }
