@@ -105,12 +105,14 @@ export async function initSlackBot() {
         const response = await askHacki(cleanPrompt);
 
         await say({
-          text: formatForSlack(response.answer)
+          text: formatForSlack(response.answer),
+          thread_ts: event.ts  // reply in thread when mentioned in a channel
         });
       } catch (err) {
         console.error('[SlackBot] Error replying to mention:', err.message);
         await say({
-          text: "Oops! I ran into an issue finding that answer. Check `https://hackclub.com/team` or `https://ysws.hackclub.com/` in the meantime!"
+          text: "Oops! I ran into an issue finding that answer. Check `https://hackclub.com/team` or `https://ysws.hackclub.com/` in the meantime!",
+          thread_ts: event.ts
         });
       }
     });
