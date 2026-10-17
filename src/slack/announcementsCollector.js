@@ -138,26 +138,64 @@ export async function initSlackCollector() {
   }
 }
 
-// Keywords — if a channel name CONTAINS any of these, the bot joins it
+// Channels to JOIN for data collection — must match precisely
+// Only bulletin/announcement/opportunity channels, NOT personal project channels
 const JOIN_KEYWORDS = [
-  'bulletin',       // beest-bulletin, crescent-bulletin, phantom-bulletin, etc.
-  'opportunity',    // hc-opportunities, opportunity
-  'opportunities',
-  'ysws',           // ysws, ysws-ads, ysws-help, ysws-draft
-  'announcement',   // announcements, terra-announcements
-  'announcements',
-  'happenings',
+  'bulletin',       // beest-bulletin, crescent-bulletin, phantom-bulletin, venture-bulletin, tagless-bulletin, zoneout-announcement etc.
+  'announcements',  // announcements, terra-announcements, zoneout-announcements
+  'announcement',
+  'happenings',     // happenings (official HQ channel)
+  'opportunities',  // hc-opportunities
+  'opportunity',
   'bounty',         // bounty, community-bounties
   'bounties',
-  'info',           // info, hc-info
-  'hiring',
+  'hiring',         // hiring channels
   'jobs',
+];
+
+// Exact channel names to always join (whitelist)
+const JOIN_EXACT = [
+  'ysws',           // #ysws (main YSWS channel, not sub-channels)
+  'ysws-ads',       // #ysws-ads (YSWS advertisements)
+  'ysws-bulletin',  // #ysws-bulletin
+];
+
+// Prefixes/patterns to NEVER join (personal projects, help channels, etc.)
+const SKIP_PATTERNS = [
+  '-help',          // crescent-help, horizons-help etc
+  '-discussion',
+  '-general',
+  '-chat',
+  '-showcase',
+  '-submissions',
+  '-submit',
+  '-staff',
+  '-admin',
+  '-internal',
+  '-private',
+  '-reviews',
+  '-review',
+  '-dev',
+  '-testing',
+  '-test',
 ];
 
 function shouldJoinChannel(name) {
   const n = name.toLowerCase();
-  return JOIN_KEYWORDS.some(kw => n.includes(kw)) ||
-    config.approvedChannels.includes(n);
+
+  // Never join channels matching skip patterns
+  if (SKIP_PATTERNS.some(p => n.includes(p))) return false;
+
+  // Always join exact matches
+  if (JOIN_EXACT.includes(n)) return true;
+
+  // Join if name contains a bulletin/announcement keyword
+  if (JOIN_KEYWORDS.some(kw => n.includes(kw))) return true;
+
+  // Join if in approved channels config
+  if (config.approvedChannels.includes(n)) return true;
+
+  return false;
 }
 
 async function syncPublicAnnouncements() {

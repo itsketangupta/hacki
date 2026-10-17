@@ -26,7 +26,7 @@ export const config = {
   enableSlackBot: process.env.ENABLE_SLACK_BOT !== 'false',
   enableSlackSync: process.env.ENABLE_SLACK_SYNC !== 'false',
   slackSyncIntervalMs: Number(process.env.SLACK_SYNC_INTERVAL_MS || 300000),
-  approvedChannels: (process.env.SLACK_APPROVED_CHANNELS || 'happenings,ysws,ysws-ads,ysws-draft,ysws-drafts,phantom-bulletin,crescent-bulletin,horizons-bulletin,macondo-bulletin,pixl-bulletin,announcements')
+  approvedChannels: (process.env.SLACK_APPROVED_CHANNELS || 'happenings,ysws,ysws-ads,ysws-bulletin,bounty,community-bounties,hc-opportunities,opportunities,phantom-bulletin,crescent-bulletin,horizons-bulletin,macondo-bulletin,pixl-bulletin,tagless-bulletin,venture-bulletin,zoneout-announcements,terra-announcements,announcements,slacker-news,the-mothership')
     .split(',')
     .map(c => c.trim().toLowerCase().replace(/^#/, ''))
     .filter(Boolean),
