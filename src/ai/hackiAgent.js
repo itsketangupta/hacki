@@ -244,6 +244,11 @@ export async function askHacki(userMessage, conversationHistory = []) {
     };
   }
 
+  // Always try to refresh live data in background for accuracy
+  // (non-blocking — uses cache if fetch fails)
+  fetchTeam().catch(() => {});
+  fetchYSWS().catch(() => {});
+
   // 1. Gather relevant context based on intent
   const { contextText, sources, detectedCategory, isOutOfScope } = await buildRAGContext(query);
 
@@ -416,7 +421,13 @@ CRITICAL RULES FOR SPECIFIC HACK CLUB QUESTIONS:
     When asking how to use, talk, or communicate in Slack, provide the official canvas link:
     https://app.slack.com/client/E09V59WQY1E/unified-files/doc/F07QCJ61T32
     And explain best practices: reply in threads (🧵), be polite and respectful, search before asking, pick the right channels (#lounge, #code, #hardware, #help, #hc-opportunities), and avoid unsolicited DMs to HQ.
-15. FORMATTING:
+15. ACCURACY RULES (CRITICAL — eps from HQ flagged inaccuracy as a problem):
+    - ONLY state facts that are present in the VERIFIED HACK CLUB GROUND TRUTH DATA provided below.
+    - If you do not have verified data about something, say "I don't have current data on that — check hackclub.com or ask in #lounge on Slack."
+    - NEVER invent team member names, roles, emails, or YSWS program details.
+    - NEVER guess deadlines, prizes, or shipping status — only state what is in the data.
+    - If data seems outdated, tell the user to verify at hackclub.com or ysws.hackclub.com.
+16. FORMATTING:
     Use clean GitHub-flavored markdown with bullet points, bold names, and clickable links.
     Do NOT add follow-up suggestions at the end.`;
 
@@ -443,7 +454,7 @@ CRITICAL RULES FOR SPECIFIC HACK CLUB QUESTIONS:
       body: JSON.stringify({
         model: config.aiModel,
         messages,
-        temperature: 0.3,
+        temperature: 0.1,
         max_tokens: 1000
       })
     });

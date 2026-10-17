@@ -133,18 +133,34 @@ async function syncPublicAnnouncements() {
     const listRes = await slackApp.client.conversations.list({
       types: 'public_channel',
       exclude_archived: true,
-      limit: 150
+      limit: 200
     });
+
+    // Keywords that identify channels Hacki should join and monitor
+    const JOIN_KEYWORDS = [
+      'bulletin', 'hc-opportunit', 'opportunity', 'opportunities',
+      'ysws', 'announcement', 'announcements', 'info', 'happenings'
+    ];
 
     const channels = (listRes.channels || []).filter(c => {
       const name = c.name.toLowerCase();
       return (
         config.approvedChannels.includes(name) ||
-        name.includes('announcement') ||
-        name.includes('bulletin') ||
-        name.includes('opportunity')
+        JOIN_KEYWORDS.some(kw => name.includes(kw))
       );
     });
+
+    // Auto-join all matching channels so we can read their messages
+    for (const ch of channels) {
+      if (!ch.is_member) {
+        try {
+          await slackApp.client.conversations.join({ channel: ch.id });
+          console.log(`[SlackCollector] Auto-joined #${ch.name}`);
+        } catch (joinErr) {
+          // Already in channel or can't join — safe to ignore
+        }
+      }
+    }
 
     let newCount = 0;
     const current = await loadAnnouncements();
