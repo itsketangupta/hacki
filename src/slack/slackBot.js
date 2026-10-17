@@ -88,21 +88,19 @@ export async function initSlackBot() {
       clientOptions: { retryConfig: { retries: 0 } }
     });
 
-    // 1. Welcome fresh new people when they join the Hack Club Slack workspace
+    // 1. Auto-invite fresh new people to #hacki when they join the workspace
     botApp.event('team_join', async ({ event, client }) => {
       const userId = event.user?.id || event.user;
-      console.log(`[SlackBot] team_join detected for fresh member: ${userId}`);
       if (userId) {
-        await sendWelcomeMessage(userId);
+        addUserToHackiChannel({ slackId: userId }).catch(() => {});
       }
     });
 
-    // 2. Welcome users when they open Hacki's App Home / DM for the first time
+    // 2. Auto-invite users when they open Hacki's App Home for the first time
     botApp.event('app_home_opened', async ({ event, client }) => {
       const userId = event.user;
-      if (userId && !welcomedUsers.has(userId)) {
-        console.log(`[SlackBot] Fresh user opened Hacki App Home: ${userId}`);
-        await sendWelcomeMessage(userId);
+      if (userId) {
+        addUserToHackiChannel({ slackId: userId }).catch(() => {});
       }
     });
 
@@ -148,12 +146,6 @@ export async function initSlackBot() {
           // Auto-invite user to #hacki on first interaction
           if (message.user) {
             addUserToHackiChannel({ slackId: message.user }).catch(() => {});
-          }
-
-          // If first DM from this user, ensure marked as welcomed
-          if (message.user && !welcomedUsers.has(message.user)) {
-            welcomedUsers.add(message.user);
-            saveWelcomedUsers().catch(() => {});
           }
 
           const response = await askHacki(message.text);

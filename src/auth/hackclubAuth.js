@@ -204,10 +204,9 @@ authRouter.get('/callback', async (req, res) => {
     }
     await saveUsers();
 
-    // If this is a fresh new user logging in and we have their Slack ID, welcome them!
+    // If this is a fresh new user logging in, auto-add them to #hacki
     if (isNewUser && slackId) {
-      console.log(`[Auth] Fresh new user registered and logged in: ${name} (${slackId}). Sending welcome greeting.`);
-      sendWelcomeMessage(slackId).catch(() => {});
+      console.log(`[Auth] Fresh new user registered: ${name} (${slackId}).`);
     }
 
     const sessionId = crypto.randomBytes(32).toString('hex');
