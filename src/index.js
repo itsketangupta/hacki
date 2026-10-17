@@ -76,6 +76,14 @@ async function start() {
   };
   process.on('SIGINT', shutdown);
   process.on('SIGTERM', shutdown);
+
+  // Prevent crashes from unhandled promise rejections
+  process.on('unhandledRejection', (reason) => {
+    console.warn('[Hacki] Unhandled rejection (non-fatal):', reason?.message || reason);
+  });
+  process.on('uncaughtException', (err) => {
+    console.warn('[Hacki] Uncaught exception (non-fatal):', err?.message || err);
+  });
 }
 
 start().catch(err => {

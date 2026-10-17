@@ -24,7 +24,12 @@ apiRouter.post('/chat', async (req, res) => {
       return res.status(400).json({ ok: false, error: 'A valid "message" string is required.' });
     }
 
-    const result = await askHacki(message, Array.isArray(history) ? history : []);
+    // Sanitize history to prevent bad characters from causing JSON parse errors
+    const safeHistory = (Array.isArray(history) ? history : []).map(h => ({
+      role: String(h.role || 'user').slice(0, 20),
+      content: String(h.content || '').replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '').slice(0, 4000)
+    }));
+    const result = await askHacki(message, safeHistory);
     res.json({ ok: true, user: user || null, ...result });
   } catch (error) {
     console.error('[API /chat error]', error);
