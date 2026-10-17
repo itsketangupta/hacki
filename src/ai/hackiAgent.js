@@ -3,6 +3,36 @@ import { searchTeam, findMemberByName, loadTeam, fetchTeam } from '../scrapers/t
 import { getNewYSWS, getActiveYSWS, searchYSWS, loadYSWS, fetchYSWS } from '../scrapers/yswsScraper.js';
 import { getHiringOpportunities, getRecentAnnouncements, searchAnnouncements } from '../slack/announcementsCollector.js';
 
+export const SOCIAL_MEDIA_SOURCES = [
+  { title: 'Hack Club GitHub', url: 'https://github.com/hackclub', type: 'social' },
+  { title: 'Hack Club YouTube', url: 'https://www.youtube.com/@HackClub', type: 'social' },
+  { title: 'Hack Club Twitter/X', url: 'https://x.com/hackclub', type: 'social' },
+  { title: 'Hack Club Instagram', url: 'https://www.instagram.com/starthackclub', type: 'social' },
+  { title: 'Hack Club TikTok', url: 'https://www.tiktok.com/@hackclub', type: 'social' },
+  { title: 'Hack Club LinkedIn', url: 'https://www.linkedin.com/company/hackclub', type: 'social' },
+  { title: 'Hack Club Bluesky', url: 'https://bsky.app/profile/hackclub.com', type: 'social' },
+  { title: 'Hack Club Slack', url: 'https://slack.hackclub.com', type: 'social' },
+  { title: 'Hack Club Website', url: 'https://hackclub.com', type: 'social' },
+  { title: 'Hack Club Blog', url: 'https://hackclub.com/blog', type: 'social' },
+  { title: 'Hack Club Scrapbook', url: 'https://scrapbook.hackclub.com', type: 'social' },
+];
+
+export const SOCIAL_MEDIA_TEXT = `### 🌐 Hack Club Social Media & Online Presence
+
+Here's everywhere you can find and follow Hack Club:
+
+- 🐙 **GitHub:** [github.com/hackclub](https://github.com/hackclub) — All open-source projects, tools, and hardware (Sprig, Blot, HCB, etc.)
+- 📺 **YouTube:** [youtube.com/@HackClub](https://www.youtube.com/@HackClub) — Event recaps, project showcases, and community highlights
+- 🐦 **Twitter / X:** [x.com/hackclub](https://x.com/hackclub) — Announcements, shoutouts, and community news
+- 📸 **Instagram:** [instagram.com/starthackclub](https://www.instagram.com/starthackclub) — Photos from events, hackathons, and HQ life
+- 🎵 **TikTok:** [tiktok.com/@hackclub](https://www.tiktok.com/@hackclub) — Short videos of builds, events, and teen makers
+- 💼 **LinkedIn:** [linkedin.com/company/hackclub](https://www.linkedin.com/company/hackclub) — Professional updates and org news
+- 🦋 **Bluesky:** [bsky.app/profile/hackclub.com](https://bsky.app/profile/hackclub.com) — Decentralized social updates
+- 💬 **Slack:** [slack.hackclub.com](https://slack.hackclub.com) — Main community hub with 50,000+ teen makers
+- 🌐 **Website:** [hackclub.com](https://hackclub.com) — Programs, team, tools, and everything Hack Club
+- 📝 **Blog:** [hackclub.com/blog](https://hackclub.com/blog) — Stories, updates, and deep dives from HQ
+- 📸 **Scrapbook:** [scrapbook.hackclub.com](https://scrapbook.hackclub.com) — Daily progress posts from teen builders worldwide`;
+
 export const YSWS_MAKE_RUN_SOURCES = [
   { title: '#ask-the-ysws-orgs (Slack Channel)', url: 'https://hackclub.slack.com', type: 'slack' },
   { title: 'YSWS Sponsors List', url: 'https://hackclub.enterprise.slack.com/lists/T0266FRGM/F09M93YCM1Q', type: 'slack' },
@@ -421,7 +451,20 @@ CRITICAL RULES FOR SPECIFIC HACK CLUB QUESTIONS:
     When asking how to use, talk, or communicate in Slack, provide the official canvas link:
     https://app.slack.com/client/E09V59WQY1E/unified-files/doc/F07QCJ61T32
     And explain best practices: reply in threads (🧵), be polite and respectful, search before asking, pick the right channels (#lounge, #code, #hardware, #help, #hc-opportunities), and avoid unsolicited DMs to HQ.
-15. ACCURACY RULES (CRITICAL — eps from HQ flagged inaccuracy as a problem):
+15. HACK CLUB SOCIAL MEDIA & ONLINE PRESENCE:
+    When asked about social media, online presence, or where to follow Hack Club:
+    - GitHub: https://github.com/hackclub
+    - YouTube: https://www.youtube.com/@HackClub
+    - Twitter/X: https://x.com/hackclub
+    - Instagram: https://www.instagram.com/starthackclub
+    - TikTok: https://www.tiktok.com/@hackclub
+    - LinkedIn: https://www.linkedin.com/company/hackclub
+    - Bluesky: https://bsky.app/profile/hackclub.com
+    - Slack: https://slack.hackclub.com
+    - Website: https://hackclub.com
+    - Blog: https://hackclub.com/blog
+    - Scrapbook: https://scrapbook.hackclub.com
+16. ACCURACY RULES (CRITICAL — eps from HQ flagged inaccuracy as a problem):
     - ONLY state facts that are present in the VERIFIED HACK CLUB GROUND TRUTH DATA provided below.
     - If you do not have verified data about something, say "I don't have current data on that — check hackclub.com or ask in #lounge on Slack."
     - NEVER invent team member names, roles, emails, or YSWS program details.
@@ -485,6 +528,18 @@ async function buildRAGContext(query) {
   const contextParts = [];
   const sources = [];
   let detectedCategory = 'general';
+
+  // Social media query detection
+  const isSocialQuery = /\b(social media|social|twitter|x\.com|instagram|youtube|tiktok|linkedin|github|bluesky|blog|scrapbook|follow|online|where.*find|links|all.*links|website)\b/i.test(q)
+    && /\b(hack club|hackclub|hacki|hc)\b/i.test(q);
+  if (isSocialQuery) {
+    return {
+      contextText: SOCIAL_MEDIA_TEXT,
+      sources: SOCIAL_MEDIA_SOURCES,
+      detectedCategory: 'social',
+      isOutOfScope: false
+    };
+  }
 
   // 0. Check Creator / Developer queries
   const isCreatorQuery = /\b(who (?:made|created|built|programmed|coded) you|who is your (?:creator|maker|developer|author)|creator|developer|ketan|ketan gupta|u093bdep8fj)\b/i.test(q);
