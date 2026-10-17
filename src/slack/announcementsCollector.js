@@ -158,6 +158,8 @@ async function syncPublicAnnouncements() {
       );
     });
 
+    console.log(`[SlackCollector] Found ${channels.length} matching channels to monitor: ${channels.map(c => '#' + c.name).join(', ')}`);
+
     // Auto-join all matching channels so we can read their messages
     for (const ch of channels) {
       if (!ch.is_member) {
@@ -165,7 +167,10 @@ async function syncPublicAnnouncements() {
           await slackApp.client.conversations.join({ channel: ch.id });
           console.log(`[SlackCollector] Auto-joined #${ch.name}`);
         } catch (joinErr) {
-          // Already in channel or can't join — safe to ignore
+          const errCode = joinErr.data?.error || joinErr.message;
+          if (errCode !== 'already_in_channel') {
+            console.warn(`[SlackCollector] Could not join #${ch.name}: ${errCode}`);
+          }
         }
       }
     }
