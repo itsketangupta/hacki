@@ -108,6 +108,19 @@ export async function initSlackCollector() {
     console.log('[SlackCollector] Initialized Slack bolt client.');
     await loadAnnouncements();
 
+    // Auto-join any newly created channel that matches our keywords
+    slackApp.event('channel_created', async ({ event }) => {
+      const name = (event.channel?.name || '').toLowerCase();
+      if (shouldJoinChannel(name)) {
+        try {
+          await slackApp.client.conversations.join({ channel: event.channel.id });
+          console.log(`[SlackCollector] Auto-joined newly created #${name}`);
+        } catch (err) {
+          console.warn(`[SlackCollector] Could not join new #${name}: ${err.data?.error || err.message}`);
+        }
+      }
+    });
+
     // Run channel sync once on start, then periodically
     syncPublicAnnouncements().catch(err => {
       console.warn(`[SlackCollector] Initial channel sync warning: ${err.message}`);
@@ -123,6 +136,28 @@ export async function initSlackCollector() {
     console.warn(`[SlackCollector] Could not initialize Slack client: ${error.message}`);
     await loadAnnouncements();
   }
+}
+
+// Keywords — if a channel name CONTAINS any of these, the bot joins it
+const JOIN_KEYWORDS = [
+  'bulletin',       // beest-bulletin, crescent-bulletin, phantom-bulletin, etc.
+  'opportunity',    // hc-opportunities, opportunity
+  'opportunities',
+  'ysws',           // ysws, ysws-ads, ysws-help, ysws-draft
+  'announcement',   // announcements, terra-announcements
+  'announcements',
+  'happenings',
+  'bounty',         // bounty, community-bounties
+  'bounties',
+  'info',           // info, hc-info
+  'hiring',
+  'jobs',
+];
+
+function shouldJoinChannel(name) {
+  const n = name.toLowerCase();
+  return JOIN_KEYWORDS.some(kw => n.includes(kw)) ||
+    config.approvedChannels.includes(n);
 }
 
 async function syncPublicAnnouncements() {
@@ -145,18 +180,7 @@ async function syncPublicAnnouncements() {
     } while (cursor);
 
     // Keywords that identify channels Hacki should join and monitor
-    const JOIN_KEYWORDS = [
-      'bulletin', 'hc-opportunit', 'opportunity', 'opportunities',
-      'ysws', 'announcement', 'announcements', 'info', 'happenings'
-    ];
-
-    const channels = allChannels.filter(c => {
-      const name = c.name.toLowerCase();
-      return (
-        config.approvedChannels.includes(name) ||
-        JOIN_KEYWORDS.some(kw => name.includes(kw))
-      );
-    });
+    const channels = allChannels.filter(c => shouldJoinChannel(c.name));
 
     console.log(`[SlackCollector] Found ${channels.length} matching channels to monitor: ${channels.map(c => '#' + c.name).join(', ')}`);
 
