@@ -121,7 +121,13 @@ export async function initSlackCollector() {
       }
     });
 
-    // Run channel sync once on start, then periodically
+    // 1. Join ALL existing matching channels in background (non-blocking)
+    // This catches old bulletin/ysws/opportunity channels created before the bot joined
+    joinAllExistingChannels().catch(err => {
+      console.warn('[SlackCollector] joinAllExistingChannels warning:', err.message);
+    });
+
+    // 2. Run channel sync once on start, then periodically
     syncPublicAnnouncements().catch(err => {
       console.warn(`[SlackCollector] Initial channel sync warning: ${err.message}`);
     });
@@ -234,6 +240,53 @@ function shouldJoinChannel(name) {
   return false;
 }
 
+/**
+ * One-time startup task: paginate ALL public channels in the workspace,
+ * filter by shouldJoinChannel, and join every matching one the bot isn't
+ * already a member of. This catches every old bulletin/ysws/opportunity
+ * channel that existed before the bot was added to the workspace.
+ */
+async function joinAllExistingChannels() {
+  if (!slackApp) return;
+  console.log('[SlackCollector] Scanning all existing channels to join matching ones...');
+
+  try {
+    let allChannels = [];
+    let cursor;
+    do {
+      const listRes = await slackApp.client.conversations.list({
+        types: 'public_channel',
+        exclude_archived: true,
+        limit: 200,
+        ...(cursor ? { cursor } : {})
+      });
+      allChannels = allChannels.concat(listRes.channels || []);
+      cursor = listRes.response_metadata?.next_cursor;
+    } while (cursor);
+
+    const targets = allChannels.filter(c => shouldJoinChannel(c.name));
+    console.log(`[SlackCollector] Found ${targets.length} channels to join: ${targets.map(c => '#' + c.name).join(', ')}`);
+
+    let joined = 0;
+    let alreadyIn = 0;
+    for (const ch of targets) {
+      if (ch.is_member) { alreadyIn++; continue; }
+      try {
+        await slackApp.client.conversations.join({ channel: ch.id });
+        console.log(`[SlackCollector] Joined existing channel #${ch.name}`);
+        joined++;
+      } catch (err) {
+        const code = err.data?.error || err.message;
+        if (code === 'already_in_channel') { alreadyIn++; continue; }
+        console.warn(`[SlackCollector] Could not join #${ch.name}: ${code}`);
+      }
+    }
+    console.log(`[SlackCollector] Channel join complete — joined: ${joined}, already member: ${alreadyIn}`);
+  } catch (err) {
+    console.warn('[SlackCollector] joinAllExistingChannels error:', err.message);
+  }
+}
+
 async function syncPublicAnnouncements() {
   if (!slackApp) return;
   console.log('[SlackCollector] Checking Slack public announcement channels for new updates...');
@@ -258,16 +311,17 @@ async function syncPublicAnnouncements() {
 
     console.log(`[SlackCollector] Found ${channels.length} matching channels to monitor: ${channels.map(c => '#' + c.name).join(', ')}`);
 
-    // Auto-join all matching channels so we can read their messages
+    // Ensure bot is still a member of every matching channel
+    // (handles cases where bot was manually removed)
     for (const ch of channels) {
       if (!ch.is_member) {
         try {
           await slackApp.client.conversations.join({ channel: ch.id });
-          console.log(`[SlackCollector] Auto-joined #${ch.name}`);
+          console.log(`[SlackCollector] Re-joined #${ch.name}`);
         } catch (joinErr) {
           const errCode = joinErr.data?.error || joinErr.message;
           if (errCode !== 'already_in_channel') {
-            console.warn(`[SlackCollector] Could not join #${ch.name}: ${errCode}`);
+            console.warn(`[SlackCollector] Could not re-join #${ch.name}: ${errCode}`);
           }
         }
       }
@@ -277,7 +331,7 @@ async function syncPublicAnnouncements() {
     const current = await loadAnnouncements();
     const existingIds = new Set(current.map(c => c.id));
 
-    for (const ch of channels.slice(0, 20)) {
+    for (const ch of channels) {
       try {
         const histRes = await slackApp.client.conversations.history({
           channel: ch.id,
