@@ -4,6 +4,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { config } from '../config.js';
 import { askHacki } from '../ai/hackiAgent.js';
+import { addUserToHackiChannel } from './slackChannelManager.js';
 
 let botApp = null;
 const welcomedUsersFile = path.join(config.dataDir, 'welcomed_users.json');
@@ -95,6 +96,11 @@ export async function initSlackBot() {
     botApp.event('app_mention', async ({ event, say, client }) => {
       console.log(`[SlackBot] Received mention in #${event.channel} from ${event.user}`);
       try {
+        // Auto-invite user to #hacki whenever they mention the bot
+        if (event.user) {
+          addUserToHackiChannel({ slackId: event.user }).catch(() => {});
+        }
+
         // Strip the bot mention tag
         const cleanPrompt = event.text.replace(/<@[A-Z0-9]+>/g, '').trim();
         const response = await askHacki(cleanPrompt);
@@ -125,6 +131,11 @@ export async function initSlackBot() {
       if (isDM) {
         console.log(`[SlackBot] Received DM from ${message.user}: "${message.text}"`);
         try {
+          // Auto-invite user to #hacki on first interaction
+          if (message.user) {
+            addUserToHackiChannel({ slackId: message.user }).catch(() => {});
+          }
+
           // If first DM from this user, ensure marked as welcomed
           if (message.user && !welcomedUsers.has(message.user)) {
             welcomedUsers.add(message.user);

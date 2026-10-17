@@ -19,28 +19,22 @@ function getClient() {
 export async function getHackiChannelId() {
   if (resolvedChannelId) return resolvedChannelId;
 
-  const target = (config.slackHackiChannel || 'hacki').trim();
+  // Always resolve to #hacki — never #hack-wire or any other channel
+  const target = 'hacki';
 
-  // If target looks like a Slack channel ID (starts with C, G, or D followed by alphanumeric)
-  if (/^[CGD][A-Z0-9]{8,}$/.test(target)) {
-    resolvedChannelId = target;
-    return resolvedChannelId;
-  }
-
-  // If news channel ID is explicitly configured and valid
-  if (config.slackNewsChannel && /^[CGD][A-Z0-9]{8,}$/.test(config.slackNewsChannel)) {
-    resolvedChannelId = config.slackNewsChannel;
+  // If SLACK_HACKI_CHANNEL is explicitly set to a Slack channel ID, use it directly
+  const envValue = (config.slackHackiChannel || '').trim();
+  if (/^[CGD][A-Z0-9]{8,}$/.test(envValue)) {
+    resolvedChannelId = envValue;
+    console.log(`[SlackChannelManager] Using configured #hacki channel ID: ${resolvedChannelId}`);
     return resolvedChannelId;
   }
 
   const client = getClient();
   if (!client) return null;
 
-  const cleanName = target.replace(/^#/, '').toLowerCase();
-
   try {
     let cursor;
-    let found = null;
     let pageCount = 0;
 
     do {
@@ -51,14 +45,11 @@ export async function getHackiChannelId() {
       });
 
       if (res.channels) {
-        found = res.channels.find(c => {
-          const n = c.name.toLowerCase();
-          return n === cleanName || n === 'hacki';
-        });
-
+        // Strictly match the channel named 'hacki' only
+        const found = res.channels.find(c => c.name.toLowerCase() === target);
         if (found) {
           resolvedChannelId = found.id;
-          console.log(`[SlackChannelManager] Found channel #${found.name} with ID ${found.id}`);
+          console.log(`[SlackChannelManager] Found #hacki with ID ${found.id}`);
           return resolvedChannelId;
         }
       }
@@ -67,21 +58,10 @@ export async function getHackiChannelId() {
       pageCount++;
     } while (cursor && pageCount < 10);
 
-    // If channel wasn't found in public list, check if news channel was set
-    if (config.slackNewsChannel) {
-      console.log(`[SlackChannelManager] Could not find #${cleanName}, defaulting to SLACK_NEWS_CHANNEL: ${config.slackNewsChannel}`);
-      resolvedChannelId = config.slackNewsChannel;
-      return resolvedChannelId;
-    }
-
-    console.warn(`[SlackChannelManager] Could not resolve channel ID for #${cleanName}. Set SLACK_HACKI_CHANNEL in .env to the channel ID.`);
+    console.warn(`[SlackChannelManager] Could not find #hacki channel. Set SLACK_HACKI_CHANNEL=<channel-id> in .env.`);
     return null;
   } catch (err) {
-    console.warn(`[SlackChannelManager] Error searching for channel #${cleanName}:`, err.message);
-    if (config.slackNewsChannel) {
-      resolvedChannelId = config.slackNewsChannel;
-      return resolvedChannelId;
-    }
+    console.warn(`[SlackChannelManager] Error searching for #hacki:`, err.message);
     return null;
   }
 }

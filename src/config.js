@@ -21,6 +21,7 @@ export const config = {
   
   // Slack Integration
   slackBotToken: process.env.SLACK_BOT_TOKEN || '',
+  slackAppToken: process.env.SLACK_APP_TOKEN || '',
   slackHackiChannel: process.env.SLACK_HACKI_CHANNEL || 'hacki',
   enableSlackBot: process.env.ENABLE_SLACK_BOT !== 'false',
   enableSlackSync: process.env.ENABLE_SLACK_SYNC !== 'false',
