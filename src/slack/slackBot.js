@@ -60,7 +60,19 @@ export async function sendWelcomeMessage(slackUserId) {
   }
 }
 
-export async function initSlackBot() {
+/**
+ * Truncate a message to Slack's block text limit (3000 chars) and strip markdown
+ * code fences that can cause issues in Slack's plain text mode.
+ */
+function formatForSlack(text) {
+  // Replace markdown code fences (``` ... ```) with plain indented text for Slack
+  let out = String(text || '').replace(/```[\w]*\n?([\s\S]*?)```/g, (_, code) => code.trim());
+  // Slack block text limit is 3000 chars
+  if (out.length > 3000) {
+    out = out.slice(0, 2900) + '\n\n_...response truncated. Ask on [hackclub.com](https://hackclub.com) for more!_';
+  }
+  return out;
+}
   if (!config.enableSlackBot || !config.slackBotToken || !config.slackAppToken) {
     console.log('[SlackBot] Slack bot listener disabled (tokens not provided or ENABLE_SLACK_BOT=false).');
     return null;
@@ -106,7 +118,7 @@ export async function initSlackBot() {
         const response = await askHacki(cleanPrompt);
 
         await say({
-          text: response.answer,
+          text: formatForSlack(response.answer),
           thread_ts: event.thread_ts || event.ts
         });
       } catch (err) {
@@ -144,7 +156,7 @@ export async function initSlackBot() {
 
           const response = await askHacki(message.text);
           await say({
-            text: response.answer,
+            text: formatForSlack(response.answer),
             thread_ts: message.thread_ts || message.ts
           });
         } catch (err) {
