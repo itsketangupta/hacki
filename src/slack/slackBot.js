@@ -88,23 +88,10 @@ export async function initSlackBot() {
       clientOptions: { retryConfig: { retries: 0 } }
     });
 
-    // 1. Auto-invite fresh new people to #hacki when they join the workspace
-    botApp.event('team_join', async ({ event, client }) => {
-      const userId = event.user?.id || event.user;
-      if (userId) {
-        addUserToHackiChannel({ slackId: userId }).catch(() => {});
-      }
-    });
+    // Only add users to #hacki when they chat with bot or log in to website.
+    // NOT on team_join or app_home_opened.
 
-    // 2. Auto-invite users when they open Hacki's App Home for the first time
-    botApp.event('app_home_opened', async ({ event, client }) => {
-      const userId = event.user;
-      if (userId) {
-        addUserToHackiChannel({ slackId: userId }).catch(() => {});
-      }
-    });
-
-    // 3. Listen for mentions (@Hacki what is the newest YSWS?)
+    // 1. Listen for mentions (@Hacki what is the newest YSWS?)
     botApp.event('app_mention', async ({ event, say, client }) => {
       console.log(`[SlackBot] Received mention in #${event.channel} from ${event.user}`);
       try {
