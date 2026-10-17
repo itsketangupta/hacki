@@ -73,6 +73,8 @@ function formatForSlack(text) {
   }
   return out;
 }
+
+export async function initSlackBot() {
   if (!config.enableSlackBot || !config.slackBotToken || !config.slackAppToken) {
     console.log('[SlackBot] Slack bot listener disabled (tokens not provided or ENABLE_SLACK_BOT=false).');
     return null;
