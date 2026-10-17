@@ -130,11 +130,19 @@ async function syncPublicAnnouncements() {
   console.log('[SlackCollector] Checking Slack public announcement channels for new updates...');
 
   try {
-    const listRes = await slackApp.client.conversations.list({
-      types: 'public_channel',
-      exclude_archived: true,
-      limit: 200
-    });
+    // Paginate through ALL channels in the workspace
+    let allChannels = [];
+    let cursor;
+    do {
+      const listRes = await slackApp.client.conversations.list({
+        types: 'public_channel',
+        exclude_archived: true,
+        limit: 200,
+        ...(cursor ? { cursor } : {})
+      });
+      allChannels = allChannels.concat(listRes.channels || []);
+      cursor = listRes.response_metadata?.next_cursor;
+    } while (cursor);
 
     // Keywords that identify channels Hacki should join and monitor
     const JOIN_KEYWORDS = [
@@ -142,7 +150,7 @@ async function syncPublicAnnouncements() {
       'ysws', 'announcement', 'announcements', 'info', 'happenings'
     ];
 
-    const channels = (listRes.channels || []).filter(c => {
+    const channels = allChannels.filter(c => {
       const name = c.name.toLowerCase();
       return (
         config.approvedChannels.includes(name) ||
