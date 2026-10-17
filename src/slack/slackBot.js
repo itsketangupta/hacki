@@ -118,14 +118,12 @@ export async function initSlackBot() {
         const response = await askHacki(cleanPrompt);
 
         await say({
-          text: formatForSlack(response.answer),
-          thread_ts: event.thread_ts || event.ts
+          text: formatForSlack(response.answer)
         });
       } catch (err) {
         console.error('[SlackBot] Error replying to mention:', err.message);
         await say({
-          text: "Oops! I ran into an issue finding that answer. Check `https://hackclub.com/team` or `https://ysws.hackclub.com/` in the meantime!",
-          thread_ts: event.thread_ts || event.ts
+          text: "Oops! I ran into an issue finding that answer. Check `https://hackclub.com/team` or `https://ysws.hackclub.com/` in the meantime!"
         });
       }
     });
@@ -150,14 +148,12 @@ export async function initSlackBot() {
 
           const response = await askHacki(message.text);
           await say({
-            text: formatForSlack(response.answer),
-            thread_ts: message.thread_ts || message.ts
+            text: formatForSlack(response.answer)
           });
         } catch (err) {
           console.error('[SlackBot] Error replying to DM:', err.message);
           await say({
-            text: "Oops! I ran into an issue answering that. Please ask again or check `https://hackclub.com`!",
-            thread_ts: message.thread_ts || message.ts
+            text: "Oops! I ran into an issue answering that. Please ask again or check `https://hackclub.com`!"
           });
         }
       }

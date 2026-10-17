@@ -1,6 +1,6 @@
 import { config } from '../config.js';
-import { searchTeam, findMemberByName, loadTeam } from '../scrapers/teamScraper.js';
-import { getNewYSWS, getActiveYSWS, searchYSWS, loadYSWS } from '../scrapers/yswsScraper.js';
+import { searchTeam, findMemberByName, loadTeam, fetchTeam } from '../scrapers/teamScraper.js';
+import { getNewYSWS, getActiveYSWS, searchYSWS, loadYSWS, fetchYSWS } from '../scrapers/yswsScraper.js';
 import { getHiringOpportunities, getRecentAnnouncements, searchAnnouncements } from '../slack/announcementsCollector.js';
 
 export const YSWS_MAKE_RUN_SOURCES = [
