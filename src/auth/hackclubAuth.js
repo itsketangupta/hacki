@@ -1,79 +1,38 @@
 import express from 'express';
 import crypto from 'node:crypto';
-import fs from 'node:fs/promises';
-import path from 'node:path';
 import { config } from '../config.js';
 import { addUserToHackiChannel } from '../slack/slackChannelManager.js';
 import { sendWelcomeMessage } from '../slack/slackBot.js';
+import {
+  upsertUser,
+  createSession,
+  getSession,
+  deleteSession,
+  pruneExpiredSessions
+} from '../db/database.js';
 
 export const authRouter = express.Router();
 
-const sessions = new Map();
 const oauthStates = new Map();
-const usersFile = path.join(config.dataDir, 'users.json');
-const sessionsFile = path.join(config.dataDir, 'sessions.json');
-let users = [];
 
-async function loadUsers() {
-  try {
-    const raw = await fs.readFile(usersFile, 'utf8');
-    users = JSON.parse(raw);
-  } catch {
-    users = [];
-  }
-}
-loadUsers();
+// Prune stale DB sessions once at startup
+pruneExpiredSessions();
 
-async function saveUsers() {
-  try {
-    await fs.mkdir(config.dataDir, { recursive: true });
-    await fs.writeFile(usersFile, JSON.stringify(users.slice(0, 1000), null, 2), 'utf8');
-  } catch (e) {
-    console.warn('[Auth] Could not save users file:', e.message);
-  }
-}
-
-async function loadSessions() {
-  try {
-    const raw = await fs.readFile(sessionsFile, 'utf8');
-    const parsed = JSON.parse(raw);
-    for (const [sid, user] of Object.entries(parsed)) {
-      sessions.set(sid, user);
-    }
-  } catch {
-    // No saved sessions
-  }
-}
-loadSessions();
-
-async function saveSessions() {
-  try {
-    await fs.mkdir(config.dataDir, { recursive: true });
-    const obj = {};
-    for (const [sid, user] of sessions.entries()) {
-      obj[sid] = user;
-    }
-    await fs.writeFile(sessionsFile, JSON.stringify(obj, null, 2), 'utf8');
-  } catch (e) {
-    console.warn('[Auth] Could not save sessions file:', e.message);
-  }
-}
+// ---------------------------------------------------------------------------
+// Cookie helpers
+// ---------------------------------------------------------------------------
 
 export function parseCookies(cookieHeader) {
   const cookies = {};
   if (!cookieHeader) return cookies;
-  const parts = cookieHeader.split(';');
-  for (const part of parts) {
+  for (const part of cookieHeader.split(';')) {
     const idx = part.indexOf('=');
     if (idx === -1) continue;
     const key = part.slice(0, idx).trim();
     const val = part.slice(idx + 1).trim();
     if (key) {
-      try {
-        cookies[key] = decodeURIComponent(val);
-      } catch {
-        cookies[key] = val;
-      }
+      try { cookies[key] = decodeURIComponent(val); }
+      catch { cookies[key] = val; }
     }
   }
   return cookies;
@@ -81,16 +40,14 @@ export function parseCookies(cookieHeader) {
 
 export function getSessionUser(req) {
   const cookies = parseCookies(req.headers.cookie);
-  if (cookies.hacki_session && sessions.has(cookies.hacki_session)) {
-    return sessions.get(cookies.hacki_session);
-  }
-  if (cookies.hackwire_session && sessions.has(cookies.hackwire_session)) {
-    return sessions.get(cookies.hackwire_session);
-  }
-  return null;
+  const sid = cookies.hacki_session || cookies.hackwire_session;
+  if (!sid) return null;
+  return getSession(sid);
 }
 
+// ---------------------------------------------------------------------------
 // 1. Initiate login
+// ---------------------------------------------------------------------------
 authRouter.get('/login', (req, res) => {
   if (!config.authClientId || !config.authClientSecret) {
     return res.status(503).send(`
@@ -120,7 +77,9 @@ authRouter.get('/login', (req, res) => {
   res.redirect(`https://auth.hackclub.com/oauth/authorize?${params.toString()}`);
 });
 
+// ---------------------------------------------------------------------------
 // 2. OAuth Callback
+// ---------------------------------------------------------------------------
 authRouter.get('/callback', async (req, res) => {
   const { code, state } = req.query;
   const expiry = oauthStates.get(state);
@@ -175,43 +134,26 @@ authRouter.get('/callback', async (req, res) => {
       slackChannelStatus: 'pending'
     };
 
-    // Auto-add to Hacki Slack channel (#hacki) using their Slack ID
+    // Auto-add to #hacki Slack channel
     if (slackId || email) {
       try {
-        console.log(`[Auth] Auto-adding logged in user ${name} (${slackId || email}) to #hacki Slack channel...`);
-        const slackResult = await addUserToHackiChannel({
-          slackId,
-          email,
-          name
-        });
+        console.log(`[Auth] Auto-adding ${name} (${slackId || email}) to #hacki...`);
+        const slackResult = await addUserToHackiChannel({ slackId, email, name });
         user.slackChannelStatus = slackResult.status || (slackResult.ok ? 'invited' : 'failed');
         user.slackChannelJoined = Boolean(slackResult.ok);
-        if (slackResult.channelId) {
-          user.slackChannelId = slackResult.channelId;
-        }
+        if (slackResult.channelId) user.slackChannelId = slackResult.channelId;
       } catch (slackErr) {
         console.warn('[Auth] Slack auto-invite error:', slackErr.message);
         user.slackChannelStatus = 'error';
       }
     }
 
-    const existingIdx = users.findIndex(u => u.id === id);
-    const isNewUser = existingIdx < 0;
-    if (existingIdx >= 0) {
-      users[existingIdx] = { ...users[existingIdx], ...user };
-    } else {
-      users.unshift(user);
-    }
-    await saveUsers();
+    // Persist user to SQLite (upsert)
+    upsertUser(user);
 
-    // If this is a fresh new user logging in, auto-add them to #hacki
-    if (isNewUser && slackId) {
-      console.log(`[Auth] Fresh new user registered: ${name} (${slackId}).`);
-    }
-
+    // Create session in SQLite
     const sessionId = crypto.randomBytes(32).toString('hex');
-    sessions.set(sessionId, user);
-    await saveSessions();
+    createSession(sessionId, user);
 
     res.setHeader('Set-Cookie', [
       `hacki_session=${sessionId}; HttpOnly; Path=/; SameSite=Lax; Max-Age=2592000`,
@@ -234,7 +176,9 @@ authRouter.get('/callback', async (req, res) => {
   }
 });
 
+// ---------------------------------------------------------------------------
 // 3. Re-trigger Slack Channel Join
+// ---------------------------------------------------------------------------
 authRouter.post('/join-slack', async (req, res) => {
   const user = getSessionUser(req);
   if (!user) {
@@ -252,7 +196,7 @@ authRouter.post('/join-slack', async (req, res) => {
       user.slackChannelJoined = true;
       user.slackChannelStatus = result.status;
       if (result.channelId) user.slackChannelId = result.channelId;
-      await saveUsers();
+      upsertUser(user);
     }
 
     res.json({ ok: result.ok, ...result });
@@ -261,12 +205,13 @@ authRouter.post('/join-slack', async (req, res) => {
   }
 });
 
+// ---------------------------------------------------------------------------
 // 4. Logout
-authRouter.get('/logout', async (req, res) => {
+// ---------------------------------------------------------------------------
+authRouter.get('/logout', (req, res) => {
   const cookies = parseCookies(req.headers.cookie);
-  if (cookies.hacki_session) sessions.delete(cookies.hacki_session);
-  if (cookies.hackwire_session) sessions.delete(cookies.hackwire_session);
-  await saveSessions();
+  if (cookies.hacki_session) deleteSession(cookies.hacki_session);
+  if (cookies.hackwire_session) deleteSession(cookies.hackwire_session);
 
   res.setHeader('Set-Cookie', [
     'hackwire_session=; HttpOnly; Path=/; SameSite=Lax; Max-Age=0',
@@ -274,4 +219,3 @@ authRouter.get('/logout', async (req, res) => {
   ]);
   res.redirect('/');
 });
-

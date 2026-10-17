@@ -6,5 +6,8 @@ data/users.json
 data/sessions.json
 data/welcomed_users.json
 data/cache
+data/*.db
+data/*.db-shm
+data/*.db-wal
 npm-debug.log*
 .DS_Store
