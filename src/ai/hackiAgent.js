@@ -2,6 +2,7 @@ import { config } from '../config.js';
 import { searchTeam, findMemberByName, loadTeam, fetchTeam } from '../scrapers/teamScraper.js';
 import { getNewYSWS, getActiveYSWS, searchYSWS, loadYSWS, fetchYSWS } from '../scrapers/yswsScraper.js';
 import { getHiringOpportunities, getRecentAnnouncements, searchAnnouncements } from '../slack/announcementsCollector.js';
+import { searchOfficialKnowledge } from '../scrapers/officialKnowledge.js';
 
 export const SOCIAL_MEDIA_SOURCES = [
   { title: 'Hack Club GitHub', url: 'https://github.com/hackclub', type: 'social' },
@@ -190,6 +191,15 @@ export const YSWS_SPONSORS_SOURCES = [
   { title: '#ask-the-ysws-orgs (Slack Channel)', url: 'https://hackclub.slack.com', type: 'slack' }
 ];
 
+const HACKATHON_FUNDING_SOURCES = [
+  { title: 'Hack Club High School Hackathons', url: 'https://hackclub.com/hackathons', type: 'events' },
+  { title: 'HCB Fiscal Sponsorship', url: 'https://hcb.hackclub.com', type: 'finance' }
+];
+
+const HACKATHON_FUNDING_ANSWER = `Hack Club has a page for finding high school hackathons, but that page is a directory and does not mean a direct event grant is currently available. The specific **$500 grant for in-person high school hackathons ended on December 31, 2024**, so organizers should not count on that grant now.
+
+Hack Club Bank (HCB) offers fiscal sponsorship and financial tools for eligible organizations; that is different from receiving a direct $500 grant. Check the current [Hack Club hackathons page](https://hackclub.com/hackathons) and [HCB](https://hcb.hackclub.com), or ask Hack Club staff for current event-funding options before budgeting.`;
+
 export const YSWS_SPONSORS_GUIDE = `### 🤝 Who is Sponsoring YSWS Programs?
 
 At Hack Club, community YSWS (You Ship, We Ship) programs are sponsored, guided, and coordinated by the **Gap Year team members ("Gappies")** working full-time at **Hack Club HQ in Shelburne, Vermont**, backed by Hack Club's funding and donors!
@@ -274,6 +284,68 @@ export async function askHacki(userMessage, conversationHistory = []) {
     };
   }
 
+  // Keep ordinary chat and short/slang messages from falling through to the
+  // strict topic filter (which otherwise mistakes them for unrelated topics).
+  const casualQuery = query.toLowerCase().replace(/[.,!?\s]+$/g, '').trim();
+  const isCasualGreeting = /^(?:h+i+|he+y+|hello+|yo+|sup|what'?s up|namaste|salaam|assalamu alaikum)$/i.test(casualQuery);
+  const isCasualAcknowledgement = /^(?:ok(?:ay)?|k|kk|alright|got it|thanks?|thank you|ty|thx|lol|lmao|haha+|bruh|oh+h+|ah+h+|fah+h+|okh)$/i.test(casualQuery);
+  const isShortAmbiguousMessage = /^(?:op|\?{2,}|huh|hm+|hmm+)$/i.test(casualQuery);
+  if (isCasualGreeting || isCasualAcknowledgement || isShortAmbiguousMessage) {
+    const usesHinglish = /\b(?:kya|hai|haan|han|bhai|kaise|kaisa|mujhe|mera|meri|bata|batao|samjha|matlab|accha|achha|theek|nahi|nah|karna|karo|chahiye)\b/i.test(query);
+    let answer;
+    if (isCasualGreeting) {
+      answer = usesHinglish ? 'Hey! Kya help chahiye? Hack Club ke baare mein kuch bhi poochho 🙂' : 'Hey! What can I help you with? Ask me anything about Hack Club 🙂';
+    } else if (isCasualAcknowledgement) {
+      answer = usesHinglish ? 'Theek hai 🙂 Aur kuch poochna ho toh bolo!' : 'Got it 🙂 Let me know what you need.';
+    } else {
+      answer = usesHinglish ? '“' + query + '” se tumhara kya matlab hai? Thoda context doge, toh main help kar dunga.' : 'I’m here! What do you mean by “' + query + '”? A little more context will help me answer.';
+    }
+    return { answer, sources: [], suggestedQueries: [] };
+  }
+
+  const asksHackathonFunding = /\bhack\s*club\b|\bhackclub\b|\bhc\b/i.test(query) &&
+    /\bhackathons?\b/i.test(query) &&
+    /\bspon(?:sor|ser|sorship|sored|soring)\b|\bfund(?:ing)?\b|\bgrant\b|\bmoney\b|\bfinancial support\b/i.test(query);
+  if (asksHackathonFunding) {
+    return {
+      answer: HACKATHON_FUNDING_ANSWER,
+      sources: HACKATHON_FUNDING_SOURCES,
+      suggestedQueries: []
+    };
+  }
+
+  // Answer named program status questions from the catalog fields directly;
+  // don't let the language model infer "new" from an active/limited-time tag.
+  const asksProgramStatus = /\b(new|active|ended|closed|open|ongoing|current|available|finished|expired)\b/i.test(query);
+  if (asksProgramStatus) {
+    const catalogPrograms = await loadYSWS();
+    const namedProgram = catalogPrograms.find(program => {
+      const name = String(program.name || '').trim();
+      return name.length >= 3 && query.toLowerCase().includes(name.toLowerCase());
+    });
+    if (namedProgram) {
+      const notActive = namedProgram.status !== 'active' || !namedProgram.isActive;
+      const languageHint = /\b(kya|hai|haan|bhai|kaise|mujhe|bata|batao|nahi|nah|mera|matlab)\b/i.test(query);
+      let answer;
+      if (notActive) {
+        answer = languageHint
+          ? `${namedProgram.name} abhi ended hai, new nahi. Catalog${namedProgram.deadline ? ` mein deadline ${namedProgram.deadline} dikh rahi hai` : ' mein iska status ended hai'}.`
+          : `${namedProgram.name} is marked as ended in the YSWS catalog, so it isn't a new or active program${namedProgram.deadline ? ` (listed deadline: ${namedProgram.deadline})` : ''}.`;
+      } else if (namedProgram.isNew) {
+        answer = languageHint
+          ? `${namedProgram.name} active hai aur catalog ise recently opened/new mark karta hai.`
+          : `${namedProgram.name} is active, and the catalog marks it as newly opened.`;
+      } else {
+        answer = languageHint
+          ? `${namedProgram.name} active hai, lekin catalog ise newly opened/new mark nahi karta.`
+          : `${namedProgram.name} is active, but the catalog does not mark it as newly opened.`;
+      }
+      const sources = [{ title: 'Hack Club YSWS Catalog', url: 'https://ysws.hackclub.com/', type: 'ysws' }];
+      if (namedProgram.website) sources.push({ title: `${namedProgram.name} website`, url: namedProgram.website, type: 'ysws' });
+      return { answer, sources, suggestedQueries: [] };
+    }
+  }
+
   // Always try to refresh live data in background for accuracy
   // (non-blocking — uses cache if fetch fails)
   fetchTeam().catch(() => {});
@@ -353,11 +425,17 @@ export async function askHacki(userMessage, conversationHistory = []) {
 
   // 2. Prepare system prompt
   const systemPrompt = `You are Hacki, the official AI assistant and community companion for Hack Club!
+Current date: ${new Date().toISOString().slice(0, 10)}.
+LANGUAGE AND TONE:
+- Understand and answer in the language the user uses. For mixed-language messages, follow their mix naturally.
+- If the user writes in Hinglish, reply in simple, natural Hinglish using Latin script (Hindi/Urdu words written with English letters), unless they ask for another script or language.
+- Keep replies clear and easy to understand. Match the user's level of formality and don't force slang.
+- Preserve Hack Club names, URLs, channel names, and technical terms as written. These language rules never change the accuracy or scope rules below.
 Hack Club is the world's largest nonprofit movement of high school and teenage hackers, coders, and makers (founded in 2014 by Zach Latta at age 16, with cofounder Christina Asquith).
 Note: Hacki (the AI software itself) was created by Ketan Gupta (@Ketan Gupta, Slack ID: U093BDEP8FJ, email: mrketanartist13@gmail.com).
 
 CRITICAL SCOPE RULE:
-You ONLY answer questions related to Hack Club, its team, programs, tools, and community!
+You answer questions related to Hack Club, its team, programs, tools, and community. Also respond naturally to greetings, thanks, acknowledgements, and brief unclear messages; ask a short clarifying question when needed instead of treating casual chat as off-topic.
 In-scope topics:
 - Hack Club founders (Zach Latta, Christina Asquith) and board members
 - Hack Club team members, HQ staff, Teen Contributors, and community leaders
@@ -404,7 +482,7 @@ CRITICAL RULES FOR SPECIFIC HACK CLUB QUESTIONS:
    High school graduates and teenagers taking a Gap Year to live and work full-time at Hack Club HQ in Shelburne, Vermont.
    (NOTE: Euan Ripper is a Teen Contributor, NOT a Gappie).
 6. HOW TO CONTRIBUTE TO HACK CLUB:
-   Join Slack (slack.hackclub.com), contribute to open source on GitHub (github.com/hackclub), volunteer as a YSWS reviewer/fulfiller, lead a high school club (hackclub.com/clubs), organize a hackathon with grants up to $500 (hackclub.com/hackathons), or apply as a Teen Contributor / Gappie.
+   Join Slack (slack.hackclub.com), contribute to open source on GitHub (github.com/hackclub), volunteer as a YSWS reviewer/fulfiller, lead a high school club (hackclub.com/clubs), or organize a hackathon. Do not claim a current direct $500 hackathon grant: the specific $500 program for in-person high school hackathons ended December 31, 2024. The current hackathons page is a directory, and HCB fiscal sponsorship is distinct from a direct grant.
 7. WHAT IS HCB (HACK CLUB BANK):
    Fiscal sponsorship platform for student-led hackathons, clubs, and youth nonprofits with debit cards, 501(c)(3) status, transparent finances.
 8. HOW TO MAKE, RUN, OR HOST A YSWS (THE OFFICIAL COMMUNITY GUIDE BY @SWARIT):
@@ -468,8 +546,12 @@ CRITICAL RULES FOR SPECIFIC HACK CLUB QUESTIONS:
     - ONLY state facts that are present in the VERIFIED HACK CLUB GROUND TRUTH DATA provided below.
     - If you do not have verified data about something, say "I don't have current data on that — check hackclub.com or ask in #lounge on Slack."
     - NEVER invent team member names, roles, emails, or YSWS program details.
+    - The direct $500 grant for in-person high school hackathons ended on December 31, 2024. Never present it as open, active, or available now. Hack Club's current hackathons page is a directory; HCB fiscal sponsorship is not the same as a direct grant.
     - NEVER guess deadlines, prizes, or shipping status — only state what is in the data.
     - If data seems outdated, tell the user to verify at hackclub.com or ysws.hackclub.com.
+    - Treat announcement dates and event deadlines as important: distinguish when a post was published from whether its opportunity is still open. Never call an opportunity current unless its source clearly supports that and its deadline has not passed.
+    - If a source is old, say its date and qualify the answer. Do not turn old announcements or cached data into current claims.
+    - For YSWS status, follow the catalog status and deadline fields. "Limited-time" does not mean "new"; call a program new only if the catalog marks it newly opened. Never call an ended, closed, expired, or past-deadline YSWS active or new.
 16. FORMATTING:
     Use clean GitHub-flavored markdown with bullet points, bold names, and clickable links.
     Do NOT add follow-up suggestions at the end.`;
@@ -781,7 +863,7 @@ async function buildRAGContext(query) {
     sources.push({ title: 'Hack Club Programs', url: 'https://hackclub.com/programs', type: 'programs' });
 
     const newPrograms = await getNewYSWS();
-    contextParts.push('=== CURRENT NEW & ACTIVE YSWS PROGRAMS (ysws.hackclub.com) ===');
+    contextParts.push('=== YSWS CATALOG RESULTS (ysws.hackclub.com; each listed status is authoritative) ===');
     const highlighted = [...newPrograms.slice(0, 6), ...matchedYSWS.slice(0, 4)];
     const seen = new Set();
 
@@ -828,9 +910,10 @@ async function buildRAGContext(query) {
 
   // 14. Check Hiring / Reviewer / Fulfiller / Opportunities / Slack
   const isHiringQuery = /\b(hire|hiring|reviewer|reviewing|fulfill|fulfil|fulfiller|fulfillment|organizer|mentor|volunteer|opportunity|opportunities|bulletin|announcement|slack)\b/i.test(q);
-  const searchItems = isHiringQuery ? await searchAnnouncements(q) : [];
+  const searchItems = await searchAnnouncements(q);
+  const isSlackQuery = isHiringQuery || /#[a-z0-9_-]+|\b(slack|bulletin|announcements?)\b/i.test(q) || searchItems.length > 0;
 
-  if (isHiringQuery || searchItems.length > 0) {
+  if (isSlackQuery) {
     sources.push({ title: 'Hack Club Slack Bulletin Channels', url: 'https://hackclub.slack.com', type: 'slack' });
 
     const hiringItems = await getHiringOpportunities();
@@ -847,10 +930,35 @@ async function buildRAGContext(query) {
       contextParts.push(`Title: ${item.title}`);
       contextParts.push(`Content: ${item.cleanText || item.summary}`);
       if (item.url) contextParts.push(`Slack Link: ${item.url}`);
+      if (item.url && !sources.some(source => source.url === item.url)) {
+        sources.push({
+          title: `#${item.channel}: ${item.title || 'Slack post'}`,
+          url: item.url,
+          type: 'slack',
+          publishedDate: item.timestamp
+            ? new Date(Number(String(item.timestamp).split('.')[0]) * 1000).toISOString().slice(0, 10)
+            : null
+        });
+      }
       if (item.isHiring) contextParts.push(`TAG: [ROLE / HIRING CALLOUT]`);
       contextParts.push('');
 
       if (seenSlack.size >= 8) break;
+    }
+  }
+
+  // Search cached pages from official Hack Club websites and repositories.
+  // Keep excerpts short and attach the exact page and snapshot date as citations.
+  const officialMatches = await searchOfficialKnowledge(q, 3);
+  if (officialMatches.length) {
+    contextParts.push('=== MATCHING OFFICIAL HACK CLUB KNOWLEDGE SOURCES ===');
+    for (const match of officialMatches) {
+      contextParts.push(`[Source: ${match.title}] [URL: ${match.url}] [Fetched: ${match.fetchedAt ? match.fetchedAt.slice(0, 10) : 'cached date unknown'}]`);
+      contextParts.push(match.excerpt);
+      contextParts.push('');
+      if (!sources.some(source => source.url === match.url)) {
+        sources.push({ title: match.title, url: match.url, type: 'official', fetchedDate: match.fetchedAt ? match.fetchedAt.slice(0, 10) : null });
+      }
     }
   }
 
@@ -868,7 +976,7 @@ async function buildRAGContext(query) {
     contextParts.push('  2. Free Tools: ai.hackclub.com (free AI endpoint), hackclub.app / Nest (free Linux server hosting), Sprig, Blot, Scrapbook, HCB.');
     contextParts.push('  3. Gappie Program (Gap Year): High school grads taking a gap year living and working full-time at Hack Club HQ in Vermont to build programs, hardware, and tools.');
     contextParts.push('  4. Hack Club Bank (HCB): Fiscal sponsorship and banking platform empowering youth-led hackathons and nonprofits (hcb.hackclub.com).');
-    contextParts.push('  5. Global Hackathons & Events: Epoch, Outernet, Flagship, Wonderdome, High Seas, and hundreds of local high school hackathons supported with grants up to $500+.');
+    contextParts.push('  5. Global Hackathons & Events: Epoch, Outernet, Flagship, Wonderdome, High Seas, and a directory of high school hackathons. Do not imply all listed events receive funding.');
     contextParts.push('- Leadership: Zach Latta (Founder & Executive Director), Christina Asquith (Cofounder & President).');
     contextParts.push('');
   }

@@ -1,10 +1,34 @@
 import fs from 'node:fs/promises';
+import path from 'node:path';
 import { App } from '@slack/bolt';
 import { config } from '../config.js';
 
 let cachedAnnouncements = [];
 let slackApp = null;
 let syncTimer = null;
+let nextChannelToSync = 0;
+const CHANNELS_CACHE_FILE = path.join(config.dataDir, 'slack_channels_cache.json');
+const ANNOUNCEMENTS_CHECKED_FILE = path.join(config.dataDir, 'announcements.checked-at');
+const ANNOUNCEMENTS_CACHE_LIMIT = 10000;
+const CHANNELS_PER_SYNC = 40;
+const HISTORY_REQUEST_DELAY_MS = 1300;
+
+const slackCollectorLogger = {
+  debug: () => {},
+  info: (msg, ...args) => console.log(`[SlackCollector] ${msg}`, ...args),
+  warn: (msg, ...args) => {
+    const s = String(msg || '');
+    if (s.includes('rate limit') || s.includes('retry-after')) {
+      console.log(`[SlackCollector] Slack API rate limit notice: will retry automatically.`);
+      return;
+    }
+    console.warn(`[SlackCollector] ${msg}`, ...args);
+  },
+  error: (msg, ...args) => console.error(`[SlackCollector] ${msg}`, ...args),
+  setLevel: () => {},
+  getLevel: () => 'info',
+  setName: () => {}
+};
 
 // ---------------------------------------------------------------------------
 // Text helpers
@@ -62,7 +86,7 @@ export async function loadAnnouncements() {
 export async function saveAnnouncements(items) {
   cachedAnnouncements = items;
   await fs.mkdir(config.dataDir, { recursive: true });
-  await fs.writeFile(config.announcementsFile, JSON.stringify(items.slice(0, 500), null, 2), 'utf8');
+  await fs.writeFile(config.announcementsFile, JSON.stringify(items.slice(0, ANNOUNCEMENTS_CACHE_LIMIT), null, 2), 'utf8');
 }
 
 export async function getHiringOpportunities() {
@@ -78,11 +102,27 @@ export async function getRecentAnnouncements(limit = 15) {
 export async function searchAnnouncements(query = '') {
   const all = await loadAnnouncements();
   const q = query.toLowerCase().trim();
-  if (!q) return all.slice(0, 15);
-  return all.filter(item => {
-    const text = `${item.title || ''} ${item.summary || ''} ${item.channel || ''}`.toLowerCase();
-    return text.includes(q);
-  });
+  if (!q) return [];
+
+  const channelNames = [...q.matchAll(/#([a-z0-9_-]+)/g)].map(match => match[1]);
+  const stopWords = new Set(['about', 'after', 'again', 'also', 'any', 'are', 'can', 'could', 'does', 'from', 'have', 'help', 'how', 'into', 'just', 'more', 'most', 'that', 'the', 'then', 'there', 'these', 'they', 'this', 'what', 'when', 'where', 'which', 'with', 'would', 'you', 'your']);
+  const terms = [...new Set(q.match(/[a-z0-9][a-z0-9_-]{2,}/g) || [])]
+    .filter(term => !stopWords.has(term) && !channelNames.includes(term));
+
+  return all
+    .map(item => {
+      const channel = String(item.channel || '').toLowerCase();
+      if (channelNames.length && !channelNames.some(name => channel === name || channel.includes(name))) {
+        return { item, score: 0 };
+      }
+      const text = `${item.title || ''} ${item.cleanText || ''} ${item.summary || ''} ${channel}`.toLowerCase();
+      const score = terms.reduce((total, term) => total + (text.includes(term) ? 1 : 0), 0);
+      return { item, score: score + (channelNames.length ? 2 : 0) };
+    })
+    .filter(result => result.score > 0)
+    .sort((a, b) => b.score - a.score || Number(b.item.timestamp || 0) - Number(a.item.timestamp || 0))
+    .slice(0, 15)
+    .map(result => result.item);
 }
 
 // ---------------------------------------------------------------------------
@@ -94,20 +134,11 @@ export async function searchAnnouncements(query = '') {
  * This catches entire families like ysws-*, *-bulletin, *-announcement, etc.
  */
 const JOIN_KEYWORDS = [
-  'bulletin',       // phantom-bulletin, crescent-bulletin, any-new-ysws-bulletin
-  'announcement',   // announcements, zoneout-announcements, terra-announcements
-  'announcements',
-  'opportunity',    // hc-opportunity, hc-opportunities, opportunities
-  'opportunities',
-  'hiring',
-  'jobs',
-  'careers',
-  'happenings',     // #happenings
-  'bounty',         // #bounty, #community-bounties
-  'bounties',
-  'slacker',        // #slacker-news
-  'mothership',     // #the-mothership
-  'ysws',           // #ysws, #ysws-ads, #ysws-bulletin, #ysws-drops, #ysws-anything
+  'bulletin',
+  'announcement',
+  'opportunit', // matches opportunity and opportunities
+  'ysws',
+  'bounty',
 ];
 
 /**
@@ -147,50 +178,14 @@ const JOIN_EXACT = new Set([
 ]);
 
 /**
- * Channel name substrings that are NEVER joined even if a keyword matches.
- * These are too noisy or off-topic.
- */
-const SKIP_PATTERNS = [
-  '-help',
-  '-discussion',
-  '-general',
-  '-chat',
-  '-showcase',
-  '-submissions',
-  '-submit',
-  '-staff',
-  '-admin',
-  '-internal',
-  '-private',
-  '-reviews',
-  '-review',
-  '-dev',
-  '-testing',
-  '-test',
-  '-random',
-  '-off-topic',
-];
-
-/**
  * Returns true if the bot should join / monitor this channel.
  * @param {string} name  Raw channel name (without #)
  */
 function shouldJoinChannel(name) {
   const n = name.toLowerCase().replace(/^#/, '');
-
-  // Hard skip — never join these
-  if (SKIP_PATTERNS.some(p => n.includes(p))) return false;
-
-  // Exact whitelist — always join these
-  if (JOIN_EXACT.has(n)) return true;
-
-  // Env-var approved channels — always join
-  if (config.approvedChannels.includes(n)) return true;
-
-  // Keyword substring match — join anything containing these words
-  if (JOIN_KEYWORDS.some(kw => n.includes(kw))) return true;
-
-  return false;
+  return JOIN_EXACT.has(n) ||
+    config.approvedChannels.includes(n) ||
+    JOIN_KEYWORDS.some(keyword => n.includes(keyword));
 }
 
 // ---------------------------------------------------------------------------
@@ -199,31 +194,65 @@ function shouldJoinChannel(name) {
 
 /**
  * Paginates through ALL public channels in the workspace and joins every one
- * that matches shouldJoinChannel(). Handles channels that existed before the
- * bot was installed — runs non-blocking in the background at startup.
+ * that matches shouldJoinChannel(). The channel cache is a fallback if Slack
+ * is temporarily unavailable; successful scans always replace it.
  */
+let cachedTargetChannels = null;
+let lastSuccessfulChannelScanAt = 0;
+let channelCacheComplete = false;
+const CHANNEL_RESCAN_INTERVAL_MS = 60 * 60 * 1000;
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
 async function joinAllExistingChannels() {
-  if (!slackApp) return;
+  if (!slackApp) return [];
+
+  if (cachedTargetChannels && channelCacheComplete && Date.now() - lastSuccessfulChannelScanAt < CHANNEL_RESCAN_INTERVAL_MS) {
+    return cachedTargetChannels;
+  }
+
+  // Keep the last known list as a fallback if Slack's API is temporarily down.
+  try {
+    const raw = await fs.readFile(CHANNELS_CACHE_FILE, 'utf8');
+    const parsed = JSON.parse(raw);
+    if (parsed.channels?.length) {
+      cachedTargetChannels = parsed.channels;
+      channelCacheComplete = parsed.complete === true;
+      lastSuccessfulChannelScanAt = channelCacheComplete ? Number(parsed.timestamp) || 0 : 0;
+      if (channelCacheComplete && Date.now() - lastSuccessfulChannelScanAt < CHANNEL_RESCAN_INTERVAL_MS) {
+        console.log(`[SlackCollector] Using complete channel scan cache (${cachedTargetChannels.length} matching channels).`);
+        return cachedTargetChannels;
+      }
+    }
+  } catch {}
+
   console.log('[SlackCollector] Scanning ALL existing channels to join matching ones...');
 
   try {
     // Paginate through every public channel in the workspace
     let allChannels = [];
     let cursor;
+    const seenCursors = new Set();
     do {
       const listRes = await slackApp.client.conversations.list({
         types: 'public_channel',
-        exclude_archived: true,
-        limit: 200,
+        limit: 1000,
         ...(cursor ? { cursor } : {})
       });
       allChannels = allChannels.concat(listRes.channels || []);
       cursor = listRes.response_metadata?.next_cursor;
+      if (cursor) {
+        if (seenCursors.has(cursor)) throw new Error('Slack returned a repeated channel-list cursor.');
+        seenCursors.add(cursor);
+        await sleep(3000);
+      }
     } while (cursor);
 
     console.log(`[SlackCollector] Total public channels in workspace: ${allChannels.length}`);
 
-    const targets = allChannels.filter(c => shouldJoinChannel(c.name));
+    const targets = allChannels.filter(c => !c.is_archived && shouldJoinChannel(c.name));
+    cachedTargetChannels = targets;
+    channelCacheComplete = true;
+    lastSuccessfulChannelScanAt = Date.now();
     console.log(`[SlackCollector] Channels matching join rules (${targets.length}): ${targets.map(c => '#' + c.name).join(', ')}`);
 
     let joined = 0;
@@ -237,17 +266,20 @@ async function joinAllExistingChannels() {
       }
       try {
         await slackApp.client.conversations.join({ channel: ch.id });
+        ch.is_member = true;
         console.log(`[SlackCollector] ✓ Joined #${ch.name} (${ch.id})`);
         joined++;
+        await sleep(250);
       } catch (err) {
         const code = err.data?.error || err.message;
         if (code === 'already_in_channel') {
+          ch.is_member = true;
           alreadyIn++;
           continue;
         }
         // method_not_supported_for_channel_type = private channel listed as public
         // cant_join_channel = invite-only
-        console.warn(`[SlackCollector] ✗ Could not join #${ch.name}: ${code}`);
+        console.log(`[SlackCollector] Notice: could not join #${ch.name}: ${code}`);
         failed++;
       }
     }
@@ -256,9 +288,47 @@ async function joinAllExistingChannels() {
       `[SlackCollector] Channel join complete — ` +
       `joined: ${joined}, already member: ${alreadyIn}, failed: ${failed}`
     );
+    await fs.mkdir(config.dataDir, { recursive: true });
+    await fs.writeFile(CHANNELS_CACHE_FILE, JSON.stringify({
+      timestamp: Date.now(),
+      complete: true,
+      channels: targets
+    }, null, 2), 'utf8');
+    return targets;
   } catch (err) {
-    console.warn('[SlackCollector] joinAllExistingChannels error:', err.message);
+    console.log('[SlackCollector] joinAllExistingChannels notice:', err.message);
+    return cachedTargetChannels || [];
   }
+}
+
+/** Join a matching channel reported by the live Slack event connection. */
+export async function autoJoinMatchingChannel(channel, client) {
+  const name = String(channel?.name || '').toLowerCase();
+  if (!channel?.id || !name || !shouldJoinChannel(name)) return false;
+
+  try {
+    await client.conversations.join({ channel: channel.id });
+    console.log(`[SlackCollector] Auto-joined new channel #${name} (${channel.id})`);
+  } catch (err) {
+    const code = err.data?.error || err.message;
+    if (code !== 'already_in_channel') {
+      console.warn(`[SlackCollector] Could not auto-join #${name}: ${code}`);
+      return false;
+    }
+  }
+
+  const channelInfo = { ...channel, is_member: true };
+  cachedTargetChannels = [
+    ...(cachedTargetChannels || []).filter(item => item.id !== channel.id),
+    channelInfo
+  ];
+  await fs.mkdir(config.dataDir, { recursive: true });
+  await fs.writeFile(CHANNELS_CACHE_FILE, JSON.stringify({
+    timestamp: Date.now(),
+    complete: channelCacheComplete,
+    channels: cachedTargetChannels
+  }, null, 2), 'utf8');
+  return true;
 }
 
 // ---------------------------------------------------------------------------
@@ -270,30 +340,19 @@ async function syncPublicAnnouncements() {
   console.log('[SlackCollector] Checking Slack announcement channels for new messages...');
 
   try {
-    // Use conversations.list with types=public_channel to get all public channels
-    // Then filter to ones the bot is already a member of for history fetch
-    let allChannels = [];
-    let cursor;
-    do {
-      const listRes = await slackApp.client.conversations.list({
-        types: 'public_channel',
-        exclude_archived: true,
-        limit: 200,
-        ...(cursor ? { cursor } : {})
-      });
-      allChannels = allChannels.concat(listRes.channels || []);
-      cursor = listRes.response_metadata?.next_cursor;
-    } while (cursor);
+    // Rescan the workspace on every cycle so newly created matching channels
+    // are joined and their messages become available to Hacki promptly.
+    const channels = await joinAllExistingChannels();
 
-    const channels = allChannels.filter(c => shouldJoinChannel(c.name));
     console.log(`[SlackCollector] Monitoring ${channels.length} channels: ${channels.map(c => '#' + c.name).join(', ')}`);
 
-    // Re-join any channel the bot was removed from since last sync
+    // Retry cached channels that were not successfully joined during discovery.
     for (const ch of channels) {
       if (!ch.is_member) {
         try {
           await slackApp.client.conversations.join({ channel: ch.id });
           console.log(`[SlackCollector] Re-joined #${ch.name}`);
+          await sleep(200);
         } catch (err) {
           const code = err.data?.error || err.message;
           if (code !== 'already_in_channel') {
@@ -307,12 +366,20 @@ async function syncPublicAnnouncements() {
     const current = await loadAnnouncements();
     const existingIds = new Set(current.map(c => c.id));
 
-    for (const ch of channels) {
+    const batchSize = Math.min(CHANNELS_PER_SYNC, channels.length);
+    const batch = Array.from({ length: batchSize }, (_, offset) => channels[(nextChannelToSync + offset) % channels.length]);
+    nextChannelToSync = channels.length ? (nextChannelToSync + batch.length) % channels.length : 0;
+    console.log(`[SlackCollector] Syncing ${batch.length} of ${channels.length} channels in this batch.`);
+
+    let successfulReads = 0;
+    for (const ch of batch) {
       try {
         const histRes = await slackApp.client.conversations.history({
           channel: ch.id,
-          limit: 10
+          limit: 25
         });
+        successfulReads++;
+        await sleep(HISTORY_REQUEST_DELAY_MS);
 
         for (const msg of histRes.messages || []) {
           if (!msg.text || msg.subtype) continue;
@@ -322,7 +389,7 @@ async function syncPublicAnnouncements() {
           const text = cleanSlackText(msg.text);
           const classification = classifyAnnouncement(text, ch.name);
 
-          if (classification.isHiring || classification.isOpportunity || classification.isYSWS || text.length > 80) {
+          if (text.length > 0) {
             current.unshift({
               id,
               title: text.split('\n')[0].slice(0, 120),
@@ -341,8 +408,17 @@ async function syncPublicAnnouncements() {
             newCount++;
           }
         }
-      } catch {
-        // No access yet — will be joined next cycle
+      } catch (err) {
+        const retryHeader = err.headers?.['retry-after'] || err.data?.retry_after || err.retryAfter;
+        const retryFromMessage = String(err.message || '').match(/retry-after\D+(\d+)/i)?.[1];
+        const retrySeconds = Number(retryHeader || retryFromMessage);
+        if (retrySeconds > 0) {
+          console.warn(`[SlackCollector] Rate limited while reading #${ch.name}; retrying after ${retrySeconds}s.`);
+          await sleep((retrySeconds + 1) * 1000);
+        } else {
+          // No access yet — will be retried in a later batch.
+          await sleep(HISTORY_REQUEST_DELAY_MS);
+        }
       }
     }
 
@@ -353,8 +429,13 @@ async function syncPublicAnnouncements() {
     } else {
       console.log('[SlackCollector] Announcements up-to-date.');
     }
+
+    // Record the date of this batch only if at least one channel read succeeded.
+    if (successfulReads > 0) {
+      await fs.writeFile(ANNOUNCEMENTS_CHECKED_FILE, new Date().toISOString(), 'utf8');
+    }
   } catch (error) {
-    console.warn(`[SlackCollector] Announcement sync skipped: ${error.message}`);
+    console.warn(`[SlackCollector] Announcement sync notice: ${error.message}`);
   }
 }
 
@@ -374,38 +455,28 @@ export async function initSlackCollector() {
       token: config.slackBotToken,
       appToken: config.slackAppToken,
       socketMode: Boolean(config.slackAppToken),
-      clientOptions: { retryConfig: { retries: 0 } }
+      logger: slackCollectorLogger,
+      clientOptions: {
+        logger: slackCollectorLogger
+      }
     });
 
     console.log('[SlackCollector] Initialized Slack bolt client.');
     await loadAnnouncements();
 
-    // Auto-join any NEW channel the moment it's created
-    slackApp.event('channel_created', async ({ event }) => {
-      const name = (event.channel?.name || '').toLowerCase();
-      if (shouldJoinChannel(name)) {
-        try {
-          await slackApp.client.conversations.join({ channel: event.channel.id });
-          console.log(`[SlackCollector] Auto-joined new channel #${name}`);
-        } catch (err) {
-          console.warn(`[SlackCollector] Could not join new #${name}: ${err.data?.error || err.message}`);
-        }
+    // Initial scan plus an hourly fallback catches channels created while the
+    // app was offline. New channels are joined immediately by SlackBot events.
+    (async () => {
+      try {
+        await syncPublicAnnouncements();
+      } catch (err) {
+        console.warn('[SlackCollector] Startup sync notice:', err.message);
       }
-    });
-
-    // Join all existing matching channels in background (non-blocking)
-    joinAllExistingChannels().catch(err => {
-      console.warn('[SlackCollector] joinAllExistingChannels warning:', err.message);
-    });
-
-    // Fetch announcements from all joined channels, then repeat every interval
-    syncPublicAnnouncements().catch(err => {
-      console.warn(`[SlackCollector] Initial sync warning: ${err.message}`);
-    });
+    })();
 
     syncTimer = setInterval(() => {
       syncPublicAnnouncements().catch(err => {
-        console.warn(`[SlackCollector] Periodic sync warning: ${err.message}`);
+        console.warn(`[SlackCollector] Periodic sync notice: ${err.message}`);
       });
     }, config.slackSyncIntervalMs);
 

@@ -1,9 +1,9 @@
 import { WebClient } from '@slack/web-api';
 import { config } from '../config.js';
-import { sendWelcomeMessage } from './slackBot.js';
 
 let webClient = null;
 let resolvedChannelId = null;
+const autoAddedUsers = new Set();
 
 function getClient() {
   if (!webClient && config.slackBotToken) {
@@ -69,7 +69,7 @@ export async function getHackiChannelId() {
 export const getHackwireChannelId = getHackiChannelId;
 
 /**
- * Automatically add a user to the Hacki Slack channel when they log in.
+ * Add a user to the Hacki Slack channel without sending welcome messages.
  * @param {Object} options
  * @param {string} options.slackId User's Slack ID (e.g. U0123456789)
  * @param {string} [options.email] User's email
@@ -133,19 +133,6 @@ export async function addUserToHackiChannel({ slackId, email, name }) {
     if (inviteRes.ok) {
       console.log(`[SlackChannelManager] Successfully added user ${userSlackId} (${name || 'user'}) to #hacki (${channelId})!`);
 
-      // Post a friendly welcome message in channel
-      try {
-        await client.chat.postMessage({
-          channel: channelId,
-          text: `👋 Welcome <@${userSlackId}> to Hack Club! I am Hacki, here to help you. Whichever question you have, ask me!`
-        });
-      } catch (postErr) {
-        // chat:write might have restrictions, don't fail invite if message fails
-      }
-
-      // Also send a direct welcome DM to the fresh user
-      sendWelcomeMessage(userSlackId).catch(() => {});
-
       return { ok: true, status: 'invited', channelId };
     }
 
@@ -174,6 +161,16 @@ export async function addUserToHackiChannel({ slackId, email, name }) {
     console.warn(`[SlackChannelManager] Failed to invite user ${userSlackId} to ${channelId}: ${errCode}`);
     return { ok: false, reason: errCode };
   }
+}
+
+/** Add a user once after an eligible login or message, without a welcome DM/post. */
+export async function autoAddUserToHackiChannel({ slackId, name }) {
+  if (!slackId) return { ok: false, reason: 'no_slack_id' };
+  if (autoAddedUsers.has(slackId)) return { ok: true, status: 'already_processed' };
+
+  const result = await addUserToHackiChannel({ slackId, name });
+  if (result.ok) autoAddedUsers.add(slackId);
+  return result;
 }
 
 export const addUserToHackwireChannel = addUserToHackiChannel;

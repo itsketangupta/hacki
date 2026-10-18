@@ -1,8 +1,6 @@
 import express from 'express';
 import crypto from 'node:crypto';
 import { config } from '../config.js';
-import { addUserToHackiChannel } from '../slack/slackChannelManager.js';
-import { sendWelcomeMessage } from '../slack/slackBot.js';
 import {
   upsertUser,
   createSession,
@@ -131,22 +129,9 @@ authRouter.get('/callback', async (req, res) => {
       slackUrl: slackId ? `https://hackclub.enterprise.slack.com/team/${slackId}` : null,
       avatar: identity.avatar || null,
       lastLoginAt: new Date().toISOString(),
-      slackChannelStatus: 'pending'
+      slackChannelStatus: 'not_requested',
+      slackChannelJoined: false
     };
-
-    // Auto-add to #hacki Slack channel
-    if (slackId || email) {
-      try {
-        console.log(`[Auth] Auto-adding ${name} (${slackId || email}) to #hacki...`);
-        const slackResult = await addUserToHackiChannel({ slackId, email, name });
-        user.slackChannelStatus = slackResult.status || (slackResult.ok ? 'invited' : 'failed');
-        user.slackChannelJoined = Boolean(slackResult.ok);
-        if (slackResult.channelId) user.slackChannelId = slackResult.channelId;
-      } catch (slackErr) {
-        console.warn('[Auth] Slack auto-invite error:', slackErr.message);
-        user.slackChannelStatus = 'error';
-      }
-    }
 
     // Persist user to SQLite (upsert)
     upsertUser(user);
@@ -177,36 +162,7 @@ authRouter.get('/callback', async (req, res) => {
 });
 
 // ---------------------------------------------------------------------------
-// 3. Re-trigger Slack Channel Join
-// ---------------------------------------------------------------------------
-authRouter.post('/join-slack', async (req, res) => {
-  const user = getSessionUser(req);
-  if (!user) {
-    return res.status(401).json({ ok: false, error: 'Please sign in first.' });
-  }
-
-  try {
-    const result = await addUserToHackiChannel({
-      slackId: user.slackId,
-      email: user.email,
-      name: user.name
-    });
-
-    if (result.ok) {
-      user.slackChannelJoined = true;
-      user.slackChannelStatus = result.status;
-      if (result.channelId) user.slackChannelId = result.channelId;
-      upsertUser(user);
-    }
-
-    res.json({ ok: result.ok, ...result });
-  } catch (err) {
-    res.status(500).json({ ok: false, error: err.message });
-  }
-});
-
-// ---------------------------------------------------------------------------
-// 4. Logout
+// 3. Logout
 // ---------------------------------------------------------------------------
 authRouter.get('/logout', (req, res) => {
   const cookies = parseCookies(req.headers.cookie);

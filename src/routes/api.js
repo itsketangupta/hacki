@@ -1,14 +1,18 @@
 import express from 'express';
 import crypto from 'node:crypto';
+import fs from 'node:fs/promises';
 import { askHacki } from '../ai/hackiAgent.js';
 import { loadTeam, searchTeam, fetchTeam } from '../scrapers/teamScraper.js';
 import { loadYSWS, searchYSWS, getNewYSWS, getActiveYSWS, fetchYSWS } from '../scrapers/yswsScraper.js';
 import { loadAnnouncements, getHiringOpportunities, getRecentAnnouncements } from '../slack/announcementsCollector.js';
 import { getSessionUser } from '../auth/hackclubAuth.js';
+import { autoAddUserToHackiChannel } from '../slack/slackChannelManager.js';
 import { config } from '../config.js';
 import {
   getOrCreateChatSession,
+  getChatSessionByKey,
   getChatSessionsByUser,
+  updateChatSessionTitle,
   renameChatSession,
   deleteChatSession,
   appendMessage,
@@ -22,6 +26,28 @@ import {
 } from '../db/database.js';
 
 export const apiRouter = express.Router();
+
+async function getDataSnapshotDates() {
+  const dates = { slack: null };
+  for (const [source, file] of Object.entries({ team: config.teamFile, ysws: config.yswsFile })) {
+    try {
+      dates[source] = (await fs.stat(file)).mtime.toISOString().slice(0, 10);
+    } catch {
+      dates[source] = null;
+    }
+  }
+  let slackSnapshot = null;
+  try {
+    slackSnapshot = (await fs.stat(config.announcementsFile)).mtime.toISOString().slice(0, 10);
+  } catch {}
+  let slackBatch = null;
+  try {
+    const checkedAt = (await fs.readFile(`${config.dataDir}/announcements.checked-at`, 'utf8')).trim();
+    slackBatch = new Date(checkedAt).toISOString().slice(0, 10);
+  } catch {}
+  dates.slack = { snapshot: slackSnapshot, batch: slackBatch };
+  return dates;
+}
 
 // ---------------------------------------------------------------------------
 // Auth — current user
@@ -38,22 +64,31 @@ apiRouter.get('/auth/me', (req, res) => {
 apiRouter.post('/chat', async (req, res) => {
   try {
     const user = getSessionUser(req);
-    const { message, history, chatKey } = req.body || {};
+    if (!user) {
+      return res.status(401).json({ ok: false, error: 'Sign in with Hack Club to chat with Hacki.' });
+    }
+    const { message, history, chatKey, title } = req.body || {};
 
     if (!message || typeof message !== 'string') {
       return res.status(400).json({ ok: false, error: 'A valid "message" string is required.' });
     }
 
     // Resolve or create a chat session key
-    const sessionKey = chatKey || crypto.randomBytes(12).toString('hex');
-    const userId = user?.id || null;
+    const sessionKey = typeof chatKey === 'string' && chatKey.length <= 100
+      ? chatKey
+      : crypto.randomBytes(16).toString('hex');
+    const userId = user.id;
 
     // Derive a provisional title from the first message (truncated)
     const provisionalTitle = message.slice(0, 60) + (message.length > 60 ? '…' : '');
-    const chatSession = getOrCreateChatSession(sessionKey, userId, provisionalTitle);
+    let chatSession = getChatSessionByKey(sessionKey);
+    if (chatSession && chatSession.user_id !== userId) {
+      return res.status(404).json({ ok: false, error: 'Chat not found.' });
+    }
+    if (!chatSession) chatSession = getOrCreateChatSession(sessionKey, userId, title || provisionalTitle);
+    else if (title) updateChatSessionTitle(sessionKey, userId, String(title).slice(0, 120));
 
-    // Load history from DB if chatKey was provided; otherwise fall back to
-    // the history array sent by the client (backward-compat for guests without chatKey)
+    // Load history from DB if chatKey was provided; otherwise use client history.
     let aiHistory;
     if (chatKey) {
       aiHistory = getHistoryForAI(chatSession.id, 40);
@@ -67,17 +102,32 @@ apiRouter.post('/chat', async (req, res) => {
     // Save the user's message to DB
     appendMessage(chatSession.id, 'user', message);
 
+    // A website sign-in alone is not enough. Invite the person only once they
+    // actually send Hacki a chat message from the signed-in website session.
+    if (user.slackId) {
+      autoAddUserToHackiChannel({ slackId: user.slackId, name: user.name }).catch(err => {
+        console.warn('[API /chat] Could not auto-add website chatter to #hacki:', err.message);
+      });
+    }
+
     // Call the AI
+    const dataDates = await getDataSnapshotDates();
     const result = await askHacki(message, aiHistory);
+    const datedSources = [
+      ...(result.sources || []),
+      { type: 'data_snapshot', dataDates }
+    ];
 
     // Save the assistant's reply
-    appendMessage(chatSession.id, 'assistant', result.answer, result.sources || null);
+    appendMessage(chatSession.id, 'assistant', result.answer, datedSources);
 
     res.json({
       ok: true,
       user: user || null,
       chatKey: sessionKey,
-      ...result
+      ...result,
+      sources: datedSources,
+      dataDates
     });
   } catch (error) {
     console.error('[API /chat error]', error);
@@ -96,12 +146,40 @@ apiRouter.get('/chat/sessions', (req, res) => {
   res.json({ ok: true, sessions });
 });
 
+// Import a device's existing local conversations into the signed-in account.
+apiRouter.post('/chat/sessions', (req, res) => {
+  const user = getSessionUser(req);
+  if (!user) return res.status(401).json({ ok: false, error: 'Sign in to save chats.' });
+
+  const { sessionKey, title, messages } = req.body || {};
+  if (typeof sessionKey !== 'string' || !sessionKey || sessionKey.length > 100) {
+    return res.status(400).json({ ok: false, error: 'A valid session key is required.' });
+  }
+
+  const existing = getChatSessionByKey(sessionKey);
+  if (existing) {
+    if (existing.user_id !== user.id) return res.status(404).json({ ok: false, error: 'Chat not found.' });
+    return res.json({ ok: true, session: existing, existing: true });
+  }
+
+  const session = getOrCreateChatSession(sessionKey, user.id, String(title || 'New chat').slice(0, 120));
+  for (const message of (Array.isArray(messages) ? messages : []).slice(-200)) {
+    if (!message || !['user', 'assistant'].includes(message.role) || typeof (message.text ?? message.content) !== 'string') continue;
+    appendMessage(session.id, message.role, String(message.text ?? message.content).slice(0, 12000), message.sources || null);
+  }
+
+  res.status(201).json({ ok: true, session: getChatSessionByKey(sessionKey), existing: false });
+});
+
 // ---------------------------------------------------------------------------
 // Chat history — messages in a specific session
 // ---------------------------------------------------------------------------
 apiRouter.get('/chat/sessions/:key', (req, res) => {
   try {
-    const session = getOrCreateChatSession(req.params.key);
+    const user = getSessionUser(req);
+    if (!user) return res.status(401).json({ ok: false, error: 'Sign in to view chats.' });
+    const session = getChatSessionByKey(req.params.key);
+    if (!session || session.user_id !== user.id) return res.status(404).json({ ok: false, error: 'Chat not found.' });
     const messages = getMessages(session.id);
     res.json({ ok: true, session, messages });
   } catch (error) {
@@ -121,7 +199,8 @@ apiRouter.patch('/chat/sessions/:key', (req, res) => {
     return res.status(400).json({ ok: false, error: 'A "title" string is required.' });
   }
 
-  renameChatSession(req.params.key, title.slice(0, 120));
+  const changed = renameChatSession(req.params.key, title.slice(0, 120), user.id);
+  if (!changed) return res.status(404).json({ ok: false, error: 'Chat not found.' });
   res.json({ ok: true });
 });
 
@@ -132,7 +211,8 @@ apiRouter.delete('/chat/sessions/:key', (req, res) => {
   const user = getSessionUser(req);
   if (!user) return res.status(401).json({ ok: false, error: 'Sign in to delete chats.' });
 
-  deleteChatSession(req.params.key);
+  const changed = deleteChatSession(req.params.key, user.id);
+  if (!changed) return res.status(404).json({ ok: false, error: 'Chat not found.' });
   res.json({ ok: true });
 });
 

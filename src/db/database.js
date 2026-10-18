@@ -209,14 +209,26 @@ export function getChatSessionsByUser(userId) {
     .all(userId);
 }
 
-export function renameChatSession(sessionKey, title) {
-  getDb().prepare(`
-    UPDATE chat_sessions SET title = ?, updated_at = datetime('now') WHERE session_key = ?
-  `).run(title, sessionKey);
+export function getChatSessionByKey(sessionKey) {
+  return getDb().prepare('SELECT * FROM chat_sessions WHERE session_key = ?').get(sessionKey) || null;
 }
 
-export function deleteChatSession(sessionKey) {
-  getDb().prepare('DELETE FROM chat_sessions WHERE session_key = ?').run(sessionKey);
+export function updateChatSessionTitle(sessionKey, userId, title) {
+  return getDb().prepare(`
+    UPDATE chat_sessions SET title = ?, updated_at = datetime('now')
+    WHERE session_key = ? AND user_id = ?
+  `).run(title, sessionKey, userId).changes;
+}
+
+export function renameChatSession(sessionKey, title, userId) {
+  return getDb().prepare(`
+    UPDATE chat_sessions SET title = ?, updated_at = datetime('now')
+    WHERE session_key = ? AND user_id = ?
+  `).run(title, sessionKey, userId).changes;
+}
+
+export function deleteChatSession(sessionKey, userId) {
+  return getDb().prepare('DELETE FROM chat_sessions WHERE session_key = ? AND user_id = ?').run(sessionKey, userId).changes;
 }
 
 // ---------------------------------------------------------------------------

@@ -1,103 +1,94 @@
-# 🦖 Hacki — Hack Club AI Assistant
+# Hacki
 
-**Hacki** is an AI assistant tailored specifically for the Hack Club community. It provides answers to questions about:
+Hacki is an AI assistant for the Hack Club community. It answers questions about Hack Club programs, YSWS opportunities, team members, tools, and Slack announcements, with source links and data snapshot dates where available.
 
-- 👑 **Leadership & Team Directory:** Who the founders are (Zach Latta, Christina Asquith), who is in specific roles (e.g. Chief of Staff, Hardware Lead, Philanthropy, HCB Operations), bios, contact emails, and verified Slack profiles sourced directly from [`https://hackclub.com/team`](https://hackclub.com/team).
-- 🚀 **YSWS Programs:** What's new right now, active programs, deadlines, requirements, and dedicated Slack channels sourced from [`https://ysws.hackclub.com/`](https://ysws.hackclub.com/) and [`https://hackclub.com/programs`](https://hackclub.com/programs).
-- 📢 **Slack Bulletin & Opportunities:** Who is currently hiring reviewers or fulfillers, open roles, grant drops, and announcement highlights sourced from public Slack bulletin channels (`#phantom-bulletin`, `#crescent-bulletin`, `#horizons-bulletin`, `#happenings`, `#ysws-ads`).
-- 🤖 **Hack Club AI Gateway:** Powered by the free Hack Club AI endpoint (`https://ai.hackclub.com/proxy/v1`).
-- 💬 **Slack Bot Mode:** Can answer questions directly inside Slack when mentioned (`@Hacki <question>`) or in direct messages, and automatically invites logged-in members to `#hacki`.
-- 🌐 **Web Interface & Directory:** Single-page web app with prompt suggestions, markdown formatting, source citations, and interactive directories.
+The web client uses **React** and **Vite**. An **Express** server provides the authenticated API, Hack Club sign-in, SQLite chat storage, data collectors, and optional Slack bot. AI and Slack credentials stay on the server in environment variables; the browser never receives those secrets.
 
----
+## Features
 
-## 🚀 Quick Start (Local Run)
+- Responsive React chat interface with Markdown, source citations, and streaming-style replies.
+- System, light, and dark themes.
+- Hack Club OAuth sign-in and account-scoped SQLite chat history synced across devices.
+- Retrieval from the Hack Club team directory, live YSWS catalog, Slack bulletins, and cached official Hack Club pages and repositories.
+- Source snapshot dates for time-sensitive answers.
+- Optional Slack bot replies to direct messages and explicit mentions.
+- Slack collection from configured announcement, bulletin, YSWS, opportunity, and bounty channel families.
+- A linked Slack user is invited to `#hacki` only after sending a website chat, DMing Hacki, or mentioning Hacki. Signing in alone does not invite them; the bot does not send a welcome DM or channel post.
 
-### 1. Requirements
-- Node.js 20 or newer
+## Architecture
+
+The React/Vite client in `client/` is built into `dist/` and served by Express. The same server provides API routes, Hack Club OAuth, SQLite persistence, data collectors, and the optional Slack integration.
+
+React does not hide API endpoint URLs. Access control belongs in the server, and chat/history routes require a signed-in Hack Club session. AI, Slack, and OAuth secrets stay in server environment variables and are never bundled into the client.
+
+## Requirements
+
+- Node.js 22.12 or newer
 - npm
+- Credentials for whichever optional integrations you enable (Hack Club AI Gateway, Slack, OAuth)
 
-### 2. Install Dependencies
-```bash
-npm install
-```
+## Local development
 
-### 3. Configure `.env`
-Ensure `.env` exists (already configured with your Hack Club AI API key and Slack credentials). See `.env.example` for reference.
+1. Install packages: `npm ci`.
+2. Create `.env` from `.env.example` and add the credentials you need.
+3. Set the local OAuth callback to `http://localhost:3000/auth/callback`.
+4. Run `npm run dev` and open [http://localhost:5173](http://localhost:5173). Vite proxies `/api` and `/auth` to Express on port 3000.
+5. Run `npm run sync` to manually refresh the team and YSWS caches.
 
-### 4. Sync Initial Data Cache
-```bash
-npm run sync
-```
+## Production
 
-### 5. Start the Server
-```bash
-npm start
-```
-Open **[http://localhost:3000](http://localhost:3000)** in your browser!
+Run `npm start` to build the client and start Express. On Hack Club Nest, install dependencies, configure `.env`, then run `pm2 start ecosystem.config.cjs` and `pm2 save`. The PM2 configuration runs `npm start`, so it builds the client before launching Hacki. See [DEPLOY_NEST.md](./DEPLOY_NEST.md) for deployment details.
 
----
+## Configuration
 
-## 🛠️ REST API Endpoints
+| Variable | Purpose |
+| --- | --- |
+| `PORT` | Express port (default `3000`) |
+| `AI_API_KEY` | Server-side Hack Club AI Gateway key |
+| `AI_BASE_URL` | AI Gateway base URL |
+| `AI_MODEL` | Model identifier sent to the gateway |
+| `HACKCLUB_CLIENT_ID` / `HACKCLUB_CLIENT_SECRET` | Hack Club OAuth credentials |
+| `HACKCLUB_REDIRECT_URI` | Registered OAuth callback URL |
+| `PUBLIC_BASE_URL` | Public site URL in production |
+| `SLACK_BOT_TOKEN` / `SLACK_APP_TOKEN` | Optional Slack bot and Socket Mode credentials |
+| `ENABLE_SLACK_BOT` | Enable or disable Slack bot (requires credentials) |
+| `ENABLE_SLACK_SYNC` | Enable or disable announcement collection |
+| `SLACK_SYNC_INTERVAL_MS` | Delay between Slack sync batches |
+| `SLACK_HACKI_CHANNEL` | Target channel name or ID for interaction-triggered invites |
 
-| Endpoint | Method | Description |
-|---|---|---|
-| `/api/chat` | `POST` | Ask a question (`{ message: "...", history: [...] }`) |
-| `/api/status` | `GET` | Get total team members, active YSWS, and announcement counts |
-| `/api/team` | `GET` | Search team members by name or role (`?q=hardware`) |
-| `/api/ysws` | `GET` | List or search YSWS programs (`?q=crescent` or `?new=true`) |
-| `/api/opportunities` | `GET` | Get open reviewer & fulfiller hiring callouts from Slack |
-| `/api/sync` | `POST` | Trigger fresh background sync of all scrapers |
+Never commit `.env` or put credentials in client code. `.env` is excluded by `.gitignore`.
 
----
+## API
 
-## 🌐 Deploying to `hackclub.app` (Nest)
+| Method | Endpoint | Purpose |
+| --- | --- | --- |
+| `GET` | `/api/auth/me` | Current signed-in user |
+| `POST` | `/api/chat` | Ask Hacki; authentication required |
+| `GET` | `/api/chat/sessions` | List the signed-in user's chats |
+| `POST` | `/api/chat/sessions` | Import or create a chat |
+| `GET` | `/api/chat/sessions/:key` | Load a chat owned by the signed-in user |
+| `PATCH` | `/api/chat/sessions/:key` | Rename a chat |
+| `DELETE` | `/api/chat/sessions/:key` | Delete a chat |
+| `GET` | `/api/status` | Catalog and collector counts |
+| `GET` | `/api/team?q=...` | Search the team cache |
+| `GET` | `/api/ysws?q=...` | Search YSWS catalog (`?new=true` for newly opened entries) |
+| `GET` | `/api/opportunities` | Cached Slack hiring and opportunity callouts |
+| `POST` | `/api/sync` | Start a background team and YSWS refresh |
 
-Detailed deployment instructions for Hack Club's Nest Linux server are available in **[DEPLOY_NEST.md](./DEPLOY_NEST.md)**.
+## Project layout
 
-Quick summary:
-```bash
-ssh username@hackclub.app
-git clone https://github.com/itsketangupta/hacki.git
-cd hacki
-npm install
-pm2 start ecosystem.config.cjs
-```
+- `client/src/App.jsx` — React chat, auth, history, and theme UI
+- `client/src/style.css` — Responsive application styling
+- `client/public/` — App logos and Hack Club flag
+- `src/ai/hackiAgent.js` — Retrieval, answer rules, and AI Gateway client
+- `src/auth/` — Hack Club OAuth and sessions
+- `src/db/database.js` — SQLite schema and chat persistence
+- `src/routes/api.js` — Express API routes
+- `src/scrapers/` — Team, YSWS, and official knowledge collectors
+- `src/slack/` — Slack bot, channel rules, and bulletin collector
+- `data/` — Local data caches and runtime SQLite database
+- `dist/` — Generated production client; do not edit by hand
 
----
+## Data freshness
 
-## 📁 Project Structure
-
-```
-hacki/
-├── DEPLOY_NEST.md          # Guide for hosting on hackclub.app (Nest)
-├── ecosystem.config.cjs    # PM2 production configuration
-├── package.json
-├── .env                    # Configured credentials & AI keys (git-ignored)
-├── .env.example
-├── data/
-│   ├── team.json           # Indexed Hack Club team directory
-│   ├── ysws.json           # Catalog of 230+ YSWS programs
-│   └── announcements.json  # Synced Slack bulletin posts & reviewer calls
-├── public/
-│   ├── index.html          # Web chat UI
-│   ├── style.css           # Hack Club aesthetic styles
-│   ├── app.js             # Interactive frontend client
-│   └── hacki-logo.png     # Dinosaur mascot logo with "Hacki"
-└── src/
-    ├── config.js           # Configuration loader
-    ├── index.js            # Express server entry point
-    ├── ai/
-    │   └── hackiAgent.js   # RAG pipeline & Hack Club AI gateway client
-    ├── scrapers/
-    │   ├── teamScraper.js  # Scrapes & indexes hackclub.com/team
-    │   └── yswsScraper.js  # Parses ysws.hackclub.com catalog & programs
-    ├── slack/
-    │   ├── announcementsCollector.js # Slack bulletin channel collector
-    │   ├── slackBot.js     # Slack bot mention and DM responder
-    │   └── slackChannelManager.js    # #hacki auto-invite manager
-    ├── routes/
-    │   └── api.js          # REST API endpoints
-    └── scripts/
-        └── sync-data.js    # Data synchronization CLI script
-```
+Team and YSWS data refresh at startup and periodically. Official Hack Club pages and repositories are cached and refreshed periodically. Slack announcement dates refer to the original posts; snapshot dates refer to the local cache. Verify time-sensitive program, deadline, and funding details with the linked source.

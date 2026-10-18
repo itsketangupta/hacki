@@ -4,11 +4,29 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { config } from '../config.js';
 import { askHacki } from '../ai/hackiAgent.js';
-import { addUserToHackiChannel } from './slackChannelManager.js';
+import { autoJoinMatchingChannel } from './announcementsCollector.js';
+import { autoAddUserToHackiChannel } from './slackChannelManager.js';
 
 let botApp = null;
 const welcomedUsersFile = path.join(config.dataDir, 'welcomed_users.json');
 let welcomedUsers = new Set();
+
+const botLogger = {
+  debug: () => {},
+  info: (msg, ...args) => console.log(`[SlackBot] ${msg}`, ...args),
+  warn: (msg, ...args) => {
+    const s = String(msg || '');
+    if (s.includes('rate limit') || s.includes('retry-after')) {
+      console.log(`[SlackBot] Slack API rate limit notice: will retry automatically.`);
+      return;
+    }
+    console.warn(`[SlackBot] ${msg}`, ...args);
+  },
+  error: (msg, ...args) => console.error(`[SlackBot] ${msg}`, ...args),
+  setLevel: () => {},
+  getLevel: () => 'info',
+  setName: () => {}
+};
 
 export const WELCOME_MESSAGE = "👋 Welcome to Hack Club! I am Hacki, here to help you. Whichever question you have, ask me!";
 
@@ -85,19 +103,30 @@ export async function initSlackBot() {
       token: config.slackBotToken,
       appToken: config.slackAppToken,
       socketMode: true,
-      clientOptions: { retryConfig: { retries: 0 } }
+      logger: botLogger,
+      clientOptions: {
+        logger: botLogger
+      }
     });
 
-    // Only add users to #hacki when they chat with bot or log in to website.
-    // NOT on team_join or app_home_opened.
+    // The collector uses a Web API client for scheduled syncing. Register
+    // channel creation on this running Socket Mode app so matching new public
+    // channels are joined immediately.
+    botApp.event('channel_created', async ({ event, client }) => {
+      await autoJoinMatchingChannel(event.channel, client);
+    });
+
+    // Only a human's active interaction can trigger a silent #hacki invite.
 
     // 1. Listen for mentions (@Hacki what is the newest YSWS?)
-    botApp.event('app_mention', async ({ event, say, client }) => {
+    botApp.event('app_mention', async ({ event, say }) => {
+      if (event.bot_id || event.subtype === 'bot_message') return;
       console.log(`[SlackBot] Received mention in #${event.channel} from ${event.user}`);
       try {
-        // Auto-invite user to #hacki whenever they mention the bot
         if (event.user) {
-          addUserToHackiChannel({ slackId: event.user }).catch(() => {});
+          autoAddUserToHackiChannel({ slackId: event.user }).catch(err => {
+            console.warn('[SlackBot] Could not auto-add mention author to #hacki:', err.message);
+          });
         }
 
         // Strip the bot mention tag
@@ -130,9 +159,10 @@ export async function initSlackBot() {
       if (isDM) {
         console.log(`[SlackBot] Received DM from ${message.user}: "${message.text}"`);
         try {
-          // Auto-invite user to #hacki on first interaction
           if (message.user) {
-            addUserToHackiChannel({ slackId: message.user }).catch(() => {});
+            autoAddUserToHackiChannel({ slackId: message.user }).catch(err => {
+              console.warn('[SlackBot] Could not auto-add DM author to #hacki:', err.message);
+            });
           }
 
           const response = await askHacki(message.text);

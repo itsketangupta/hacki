@@ -4,6 +4,29 @@ import { config } from '../config.js';
 
 let cachedYSWS = null;
 
+function isPastDeadline(deadline, now = Date.now()) {
+  if (!deadline) return false;
+  const value = String(deadline).trim();
+  let deadlineTime;
+  const monthOnly = value.match(/^(\d{4})-(\d{2})$/);
+  const dateOnly = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (monthOnly) {
+    deadlineTime = Date.UTC(Number(monthOnly[1]), Number(monthOnly[2]), 0, 23, 59, 59, 999);
+  } else if (dateOnly) {
+    deadlineTime = Date.UTC(Number(dateOnly[1]), Number(dateOnly[2]) - 1, Number(dateOnly[3]), 23, 59, 59, 999);
+  } else {
+    deadlineTime = Date.parse(value);
+  }
+  return Number.isFinite(deadlineTime) && deadlineTime < now;
+}
+
+function openedRecently(opens, now = Date.now()) {
+  if (!opens) return false;
+  const openedAt = Date.parse(String(opens));
+  const age = now - openedAt;
+  return Number.isFinite(openedAt) && age >= 0 && age <= 30 * 24 * 60 * 60 * 1000;
+}
+
 export async function fetchYSWS() {
   console.log('[YSWSScraper] Fetching YSWS catalog from https://ysws.hackclub.com/data.yml...');
   try {
@@ -26,21 +49,17 @@ export async function fetchYSWS() {
         if (!item || !item.name) continue;
 
         const isLimited = cat === 'limitedTime';
-        const isEnded = cat === 'recentlyEnded' || item.status === 'ended' || item.status === 'closed';
+        const isEnded = cat === 'recentlyEnded' || ['ended', 'closed', 'expired', 'completed'].includes(String(item.status || '').toLowerCase());
         const isDraft = cat === 'drafts' || item.status === 'draft';
         const isActive = !isEnded && !isDraft && (item.status === 'active' || isLimited || cat === 'indefinite');
 
         // Check if deadline is in future or past if ISO date
-        let hasExpired = false;
-        if (item.deadline) {
-          const dlTime = Date.parse(item.deadline);
-          if (!isNaN(dlTime) && dlTime < Date.now()) {
-            hasExpired = true;
-          }
-        }
+        const hasExpired = isPastDeadline(item.deadline);
 
         const effectiveStatus = isEnded || hasExpired ? 'ended' : isDraft ? 'draft' : 'active';
-        const isNew = isLimited && effectiveStatus === 'active';
+        // A limited-time category does not mean a program is newly launched.
+        // Only an explicit catalog flag or a recent opening earns the NEW label.
+        const isNew = effectiveStatus === 'active' && Boolean(item.isNew || item.new || openedRecently(item.opens));
 
         programsList.push({
           name: String(item.name).trim(),
@@ -48,6 +67,7 @@ export async function fetchYSWS() {
           status: effectiveStatus,
           isActive: effectiveStatus === 'active',
           isNew,
+          explicitlyNew: Boolean(item.isNew || item.new),
           description: item.description || '',
           detailedDescription: item.detailedDescription || item.description || '',
           website: item.website || '',
@@ -90,7 +110,13 @@ export async function loadYSWS() {
   if (cachedYSWS && cachedYSWS.length > 0) return cachedYSWS;
   try {
     const data = await fs.readFile(config.yswsFile, 'utf8');
-    cachedYSWS = JSON.parse(data);
+    cachedYSWS = JSON.parse(data).map(program => {
+      // Older cache files treated every limited-time program as "new". Until
+      // the next live refresh, keep only explicit or recently opened entries.
+      const explicitlyNew = Boolean(program.explicitlyNew);
+      const isNew = program.status === 'active' && (explicitlyNew || openedRecently(program.opens));
+      return { ...program, isNew };
+    });
     return cachedYSWS;
   } catch {
     return fetchYSWS();

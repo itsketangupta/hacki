@@ -2,7 +2,9 @@ module.exports = {
   apps: [
     {
       name: 'hacki',
-      script: 'src/index.js',
+      script: 'npm',
+      args: 'start',
+      cwd: __dirname,
       instances: 1,
       autorestart: true,
       watch: false,

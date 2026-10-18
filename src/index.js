@@ -8,13 +8,15 @@ import { loadYSWS, fetchYSWS } from './scrapers/yswsScraper.js';
 import { initSlackCollector } from './slack/announcementsCollector.js';
 import { initSlackBot } from './slack/slackBot.js';
 import { authRouter } from './auth/hackclubAuth.js';
+import { loadOfficialKnowledge, fetchOfficialKnowledge } from './scrapers/officialKnowledge.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const publicDir = path.join(__dirname, '..', 'public');
+const publicDir = path.join(__dirname, '..', 'dist');
 
 const app = express();
 
+app.set('trust proxy', 1);
 app.use(express.json());
 app.use(express.static(publicDir));
 app.use('/auth', authRouter);
@@ -47,7 +49,8 @@ async function start() {
   try {
     await Promise.all([
       loadTeam(),
-      loadYSWS()
+      loadYSWS(),
+      loadOfficialKnowledge()
     ]);
   } catch (err) {
     console.warn(`[Hacki] Data load notice: ${err.message}`);
@@ -59,20 +62,40 @@ async function start() {
     console.log(`[Hacki] Ready to answer questions about Hack Club!`);
   });
 
+  // Also bind to port 80 if config.port is not 80 (required for Hack Club Nest reverse proxy)
+  let port80Server = null;
+  if (config.port !== 80) {
+    try {
+      port80Server = app.listen(80, '0.0.0.0', () => {
+        console.log(`[Hacki] Also listening on port 80 for public proxy (hackclub.app)`);
+      });
+      port80Server.on('error', (err) => {
+        console.warn(`[Hacki] Port 80 listener notice: ${err.message}`);
+      });
+    } catch (err) {
+      console.warn(`[Hacki] Could not bind port 80: ${err.message}`);
+    }
+  }
+
   // 3. Initialize Slack collector & bot in background (non-blocking)
   initSlackCollector().catch(err => console.warn('[Hacki] Slack collector init warning:', err.message));
   initSlackBot().catch(err => console.warn('[Hacki] Slack bot init warning:', err.message));
+  fetchOfficialKnowledge().catch(err => console.warn('[Hacki] Official knowledge refresh warning:', err.message));
 
   // Background refresh of team & YSWS data every 6 hours
   setInterval(() => {
     console.log('[Hacki] Running periodic refresh of Team and YSWS catalog...');
     fetchTeam().catch(() => {});
     fetchYSWS().catch(() => {});
+    fetchOfficialKnowledge().catch(() => {});
   }, 6 * 60 * 60 * 1000);
 
   const shutdown = () => {
     console.log('\n[Hacki] Gracefully shutting down...');
-    server.close(() => process.exit(0));
+    server.close(() => {
+      if (port80Server) port80Server.close();
+      process.exit(0);
+    });
   };
   process.on('SIGINT', shutdown);
   process.on('SIGTERM', shutdown);

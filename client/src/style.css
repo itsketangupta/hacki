@@ -101,6 +101,10 @@ body {
   margin-left: -260px;
 }
 
+.sidebar-mobile-backdrop {
+  display: none;
+}
+
 /* Give room for the hanging Hack Club flag */
 .sidebar-top {
   padding: 56px 12px 12px 12px;
@@ -244,7 +248,7 @@ body {
   color: var(--primary-hc);
 }
 
-.chat-history-guest-notice {
+.chat-history-empty-notice {
   padding: 16px 12px;
   font-size: 13px;
   color: var(--text-muted);
@@ -586,6 +590,123 @@ body {
   }
 }
 
+/* Theme, accessible controls, and small-screen polish */
+:root[data-theme="light"] {
+  color-scheme: light;
+  --bg-sidebar: #f7f7f8;
+  --bg-sidebar-hover: #ececef;
+  --bg-main: #ffffff;
+  --bg-input: #f3f4f6;
+  --border-input: #d7d9df;
+  --border-subtle: #e4e5e9;
+  --border-hover: #c4c7d0;
+  --text-primary: #202124;
+  --text-secondary: #50545e;
+  --text-muted: #747985;
+  --user-msg-bg: #f1f2f4;
+  --code-bg: #f5f5f6;
+}
+
+:root[data-theme="dark"] { color-scheme: dark; }
+
+@media (prefers-color-scheme: light) {
+  :root[data-theme="system"] {
+    color-scheme: light;
+    --bg-sidebar: #f7f7f8;
+    --bg-sidebar-hover: #ececef;
+    --bg-main: #ffffff;
+    --bg-input: #f3f4f6;
+    --border-input: #d7d9df;
+    --border-subtle: #e4e5e9;
+    --border-hover: #c4c7d0;
+    --text-primary: #202124;
+    --text-secondary: #50545e;
+    --text-muted: #747985;
+    --user-msg-bg: #f1f2f4;
+    --code-bg: #f5f5f6;
+  }
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.theme-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  background: var(--bg-sidebar);
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+}
+
+.theme-icon-btn {
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.theme-icon-btn svg {
+  width: 17px;
+  height: 17px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.theme-icon-btn:hover,
+.theme-icon-btn[aria-pressed="true"] {
+  background: var(--bg-sidebar-hover);
+  color: var(--text-primary);
+}
+
+.theme-icon-btn:focus-visible,
+button:focus-visible,
+a:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--primary-hc);
+  outline-offset: 2px;
+}
+
+@media (max-width: 768px) {
+  body { height: 100dvh; min-height: 100dvh; width: 100%; }
+  .topbar { padding-inline: 12px; gap: 8px; }
+  .topbar-right { gap: 8px; }
+  .theme-icon-btn { width: 34px; height: 34px; }
+  .conversation-container { padding-inline: 12px; }
+  .input-container { padding: 12px; }
+  .input-box { gap: 8px; }
+  .message-item.user .message-body { max-width: 88%; }
+  .auth-modal-card { max-height: calc(100dvh - 28px); overflow-y: auto; padding: 26px 20px 20px; }
+}
+
+@media (max-width: 420px) {
+  .model-version { display: none; }
+  .topbar-login-btn { padding: 8px 10px; }
+  .theme-control { gap: 0; }
+  .empty-prompts-grid { gap: 8px; }
+  .empty-prompt-card { padding: 10px; }
+  .auth-modal-backdrop { padding: 12px; }
+}
+
 .empty-prompt-card {
   display: flex;
   align-items: center;
@@ -645,7 +766,7 @@ body {
 
 .message-item.user .message-body {
   background-color: var(--user-msg-bg);
-  color: #fff;
+  color: var(--text-primary);
   padding: 12px 18px;
   border-radius: 20px 20px 4px 20px;
   max-width: 75%;
@@ -759,6 +880,20 @@ body {
   border-color: var(--border-hover);
 }
 
+.source-post-date {
+  margin-left: 4px;
+  color: var(--text-muted);
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.data-snapshot-label {
+  flex-basis: 100%;
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
 /* Message Actions Toolbar (Copy, Like) */
 .msg-actions {
   display: flex;
@@ -817,6 +952,30 @@ body {
   gap: 4px;
   align-items: center;
   padding: 6px 0;
+}
+
+.thinking-label {
+  display: inline-block;
+  margin-right: 8px;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.message-body.streaming { white-space: pre-wrap; }
+
+.message-body.streaming::after {
+  content: "";
+  display: inline-block;
+  width: 2px;
+  height: 1.1em;
+  margin-left: 3px;
+  vertical-align: text-bottom;
+  background: var(--primary-hc);
+  animation: caret-blink 0.8s steps(2, start) infinite;
+}
+
+@keyframes caret-blink {
+  to { visibility: hidden; }
 }
 
 .dot {
@@ -1113,11 +1272,38 @@ body {
 
 /* Mobile Responsiveness */
 @media (max-width: 768px) {
+  .hackclub-flag-link {
+    display: flex;
+    align-items: flex-start;
+    width: 60px;
+    min-height: 48px;
+    top: 2px;
+    left: 8px;
+    z-index: 60;
+  }
+  .topbar-left { margin-left: 56px; }
+  .sidebar.closed ~ .main-content .topbar-left { margin-left: 56px; }
+  .topbar-left > .icon-button {
+    min-width: 44px;
+    min-height: 44px;
+    align-items: center;
+    justify-content: center;
+  }
+  .sidebar-brand { padding-left: 68px; }
   .sidebar {
     position: fixed;
     inset: 0 auto 0 0;
     margin-left: -260px;
   }
+  .sidebar-mobile-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    border: 0;
+    background: rgba(0, 0, 0, 0.42);
+    z-index: 40;
+  }
+  .sidebar-top { padding-top: 16px; }
   .sidebar.mobile-open {
     margin-left: 0;
   }
@@ -1302,24 +1488,6 @@ body {
 .auth-modal-btn-flag {
   width: 22px;
   height: 22px;
-}
-
-.auth-modal-guest-btn {
-  background: transparent;
-  border: 1px solid var(--border-subtle);
-  color: var(--text-secondary);
-  padding: 11px 16px;
-  border-radius: 12px;
-  font-size: 13.5px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background-color 0.15s, color 0.15s, border-color 0.15s;
-}
-
-.auth-modal-guest-btn:hover {
-  background: var(--bg-sidebar-hover);
-  color: #fff;
-  border-color: var(--border-hover);
 }
 
 .auth-modal-footer {
