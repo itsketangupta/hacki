@@ -71,8 +71,10 @@ export async function fetchOfficialKnowledge() {
 
 export async function searchOfficialKnowledge(query, limit = 3) {
   const docs = await loadOfficialKnowledge();
-  const terms = [...new Set(String(query || '').toLowerCase().match(/[a-z0-9][a-z0-9-]{2,}/g) || [])]
-    .filter(word => !new Set(['what', 'when', 'where', 'which', 'with', 'from', 'that', 'this', 'about', 'does', 'have', 'hack', 'club']).has(word));
+  const stopWords = new Set(['what', 'when', 'where', 'which', 'with', 'from', 'that', 'this', 'about', 'does', 'have', 'hack', 'club', 'tell', 'please', 'could', 'would', 'should', 'find', 'show', 'give', 'need', 'want', 'info', 'information']);
+  const terms = [...new Set(String(query || '').toLowerCase().match(/[a-z0-9][a-z0-9-]{1,}/g) || [])]
+    .filter(word => !stopWords.has(word))
+    .map(word => word.length > 4 && word.endsWith('s') ? word.slice(0, -1) : word);
   if (!terms.length) return [];
 
   const matches = [];
@@ -80,11 +82,17 @@ export async function searchOfficialKnowledge(query, limit = 3) {
     const paragraphs = String(doc.text || '').split(/\n+/).map(p => p.trim()).filter(p => p.length > 60);
     for (const paragraph of paragraphs) {
       const lower = paragraph.toLowerCase();
-      const score = terms.reduce((n, term) => n + (lower.includes(term) ? 1 : 0), 0);
-      if (score) matches.push({ doc, paragraph, score });
+      const title = String(doc.title || '').toLowerCase();
+      const url = String(doc.url || '').toLowerCase();
+      const matched = terms.filter(term => lower.includes(term) || title.includes(term) || url.includes(term)).length;
+      const score = terms.reduce((n, term) => n +
+        (title.includes(term) ? 5 : 0) +
+        (url.includes(term) ? 3 : 0) +
+        (lower.includes(term) ? 1 : 0), 0);
+      if (score && matched >= Math.max(1, Math.ceil(terms.length * 0.4))) matches.push({ doc, paragraph, score, matched });
     }
   }
-  matches.sort((a, b) => b.score - a.score || Date.parse(b.doc.fetchedAt || 0) - Date.parse(a.doc.fetchedAt || 0));
+  matches.sort((a, b) => b.score - a.score || b.matched - a.matched || Date.parse(b.doc.fetchedAt || 0) - Date.parse(a.doc.fetchedAt || 0));
   const results = [];
   const usedDocs = new Set();
   for (const match of matches) {

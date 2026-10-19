@@ -3,6 +3,11 @@ import yaml from 'js-yaml';
 import { config } from '../config.js';
 
 let cachedYSWS = null;
+let lastSuccessfulFetchAt = 0;
+let lastRefreshAttemptAt = 0;
+let lastRefreshFailed = false;
+let fetchInFlight = null;
+const MIN_REFRESH_INTERVAL_MS = 5 * 60 * 1000;
 
 function isPastDeadline(deadline, now = Date.now()) {
   if (!deadline) return false;
@@ -27,13 +32,28 @@ function openedRecently(opens, now = Date.now()) {
   return Number.isFinite(openedAt) && age >= 0 && age <= 30 * 24 * 60 * 60 * 1000;
 }
 
-export async function fetchYSWS() {
+export async function fetchYSWS({ force = false } = {}) {
+  if (fetchInFlight) return fetchInFlight;
+  if (!force && lastRefreshAttemptAt && Date.now() - lastRefreshAttemptAt < MIN_REFRESH_INTERVAL_MS) {
+    return cachedYSWS || loadYSWS();
+  }
+  lastRefreshAttemptAt = Date.now();
+  fetchInFlight = refreshYSWS();
+  try {
+    return await fetchInFlight;
+  } finally {
+    fetchInFlight = null;
+  }
+}
+
+async function refreshYSWS() {
   console.log('[YSWSScraper] Fetching YSWS catalog from https://ysws.hackclub.com/data.yml...');
   try {
     const res = await fetch('https://ysws.hackclub.com/data.yml', {
       headers: {
         'User-Agent': 'HackiBot/1.0 (Hack Club Community Assistant; https://hackclub.com)'
-      }
+      },
+      signal: AbortSignal.timeout(10000)
     });
     if (!res.ok) throw new Error(`HTTP ${res.status} from ysws.hackclub.com/data.yml`);
     const yamlText = await res.text();
@@ -97,12 +117,20 @@ export async function fetchYSWS() {
     await fs.writeFile(config.yswsFile, JSON.stringify(programsList, null, 2), 'utf8');
 
     cachedYSWS = programsList;
+    lastSuccessfulFetchAt = Date.now();
+    lastRefreshFailed = false;
     console.log(`[YSWSScraper] Successfully indexed ${programsList.length} YSWS programs (${programsList.filter(p => p.isActive).length} active).`);
     return programsList;
   } catch (error) {
+    lastRefreshFailed = true;
     console.error(`[YSWSScraper] Failed to fetch live YSWS: ${error.message}`);
     if (cachedYSWS && cachedYSWS.length > 0) return cachedYSWS;
-    return loadYSWS();
+    try {
+      cachedYSWS = JSON.parse(await fs.readFile(config.yswsFile, 'utf8'));
+      return cachedYSWS;
+    } catch {
+      return [];
+    }
   }
 }
 
@@ -117,10 +145,27 @@ export async function loadYSWS() {
       const isNew = program.status === 'active' && (explicitlyNew || openedRecently(program.opens));
       return { ...program, isNew };
     });
+    try {
+      const stat = await fs.stat(config.yswsFile);
+      lastSuccessfulFetchAt = Math.max(lastSuccessfulFetchAt, stat.mtimeMs);
+    } catch {}
     return cachedYSWS;
   } catch {
     return fetchYSWS();
   }
+}
+
+export async function getYSWSFreshness() {
+  let updatedAt = lastSuccessfulFetchAt ? new Date(lastSuccessfulFetchAt).toISOString() : null;
+  try {
+    const stat = await fs.stat(config.yswsFile);
+    if (!updatedAt || stat.mtimeMs > lastSuccessfulFetchAt) {
+      updatedAt = stat.mtime.toISOString();
+      lastSuccessfulFetchAt = stat.mtimeMs;
+    }
+  } catch {}
+  const ageMs = updatedAt ? Date.now() - Date.parse(updatedAt) : null;
+  return { updatedAt, stale: ageMs === null || ageMs > 6 * 60 * 60 * 1000, refreshFailed: lastRefreshFailed };
 }
 
 export async function getNewYSWS() {

@@ -105,21 +105,42 @@ export async function searchAnnouncements(query = '') {
   if (!q) return [];
 
   const channelNames = [...q.matchAll(/#([a-z0-9_-]+)/g)].map(match => match[1]);
-  const stopWords = new Set(['about', 'after', 'again', 'also', 'any', 'are', 'can', 'could', 'does', 'from', 'have', 'help', 'how', 'into', 'just', 'more', 'most', 'that', 'the', 'then', 'there', 'these', 'they', 'this', 'what', 'when', 'where', 'which', 'with', 'would', 'you', 'your']);
-  const terms = [...new Set(q.match(/[a-z0-9][a-z0-9_-]{2,}/g) || [])]
-    .filter(term => !stopWords.has(term) && !channelNames.includes(term));
+  const stopWords = new Set(['about', 'after', 'again', 'also', 'any', 'are', 'can', 'could', 'does', 'find', 'from', 'have', 'help', 'how', 'into', 'just', 'looking', 'more', 'most', 'that', 'the', 'then', 'there', 'these', 'they', 'this', 'what', 'when', 'where', 'which', 'with', 'would', 'you', 'your', 'for', 'and', 'but', 'the', 'is', 'are', 'was', 'were', 'with', 'near', 'want', 'need']);
+  const normalizeTerm = term => {
+    const synonyms = { reviewers: 'review', reviewer: 'review', reviewing: 'review', fulfillers: 'fulfill', fulfiller: 'fulfill', fulfillment: 'fulfill', fulfilment: 'fulfill', opportunities: 'opportunity', jobs: 'job', roles: 'role', programs: 'program', grants: 'grant', events: 'event' };
+    if (synonyms[term]) return synonyms[term];
+    if (term.length > 4 && term.endsWith('ies')) return `${term.slice(0, -3)}y`;
+    if (term.length > 4 && term.endsWith('s')) return term.slice(0, -1);
+    return term;
+  };
+  const normalizeText = text => (String(text).toLowerCase().match(/[a-z0-9][a-z0-9_-]*/g) || []).map(normalizeTerm).join(' ');
+  const terms = [...new Set((q.match(/[a-z0-9][a-z0-9_-]{1,}/g) || [])
+    .filter(term => !stopWords.has(term) && !channelNames.includes(term))
+    .map(normalizeTerm))];
+  if (!terms.length && !channelNames.length) return [];
+  const phrase = q.replace(/#[a-z0-9_-]+/g, ' ').replace(/\s+/g, ' ').trim();
 
   return all
     .map(item => {
       const channel = String(item.channel || '').toLowerCase();
       if (channelNames.length && !channelNames.some(name => channel === name || channel.includes(name))) {
-        return { item, score: 0 };
+        return { item, score: 0, matched: 0 };
       }
-      const text = `${item.title || ''} ${item.cleanText || ''} ${item.summary || ''} ${channel}`.toLowerCase();
-      const score = terms.reduce((total, term) => total + (text.includes(term) ? 1 : 0), 0);
-      return { item, score: score + (channelNames.length ? 2 : 0) };
+      const title = String(item.title || '').toLowerCase();
+      const body = `${item.cleanText || ''} ${item.summary || ''}`.toLowerCase();
+      const normalizedTitle = normalizeText(title);
+      const normalizedBody = normalizeText(body);
+      const normalizedChannel = normalizeText(channel);
+      const matched = terms.filter(term => normalizedTitle.includes(term) || normalizedBody.includes(term) || normalizedChannel.includes(term)).length;
+      const score = terms.reduce((total, term) => total +
+        (normalizedTitle.includes(term) ? 5 : 0) +
+        (normalizedChannel.includes(term) ? 4 : 0) +
+        (normalizedBody.includes(term) ? 1 : 0), 0) +
+        (phrase.length > 4 && `${title} ${body}`.includes(phrase) ? 6 : 0) +
+        (channelNames.length ? 3 : 0);
+      return { item, score, matched };
     })
-    .filter(result => result.score > 0)
+    .filter(result => result.score > 0 && (channelNames.length > 0 || result.matched >= Math.max(1, Math.ceil(terms.length * 0.4))))
     .sort((a, b) => b.score - a.score || Number(b.item.timestamp || 0) - Number(a.item.timestamp || 0))
     .slice(0, 15)
     .map(result => result.item);

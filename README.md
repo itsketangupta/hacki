@@ -10,6 +10,9 @@ The web client uses **React** and **Vite**. An **Express** server provides the a
 - System, light, and dark themes.
 - Hack Club OAuth sign-in and account-scoped SQLite chat history synced across devices.
 - Retrieval from the Hack Club team directory, live YSWS catalog, Slack bulletins, and cached official Hack Club pages and repositories.
+- Relevance-ranked Slack and official-page search, with named YSWS status questions refreshed from the catalog before answering.
+- Evidence-first answers that distinguish official pages from community Slack posts and surface uncertainty when sources are stale or unavailable.
+- If the AI service is down, Hacki reports the outage and keeps available citations instead of returning stale canned answers.
 - A searchable Opportunity Finder for recent Slack roles, program launches, events, bounties, and other calls for participation, with original post links and dates.
 - Source snapshot dates for time-sensitive answers.
 - Optional Slack bot replies to direct messages and explicit mentions.
@@ -110,4 +113,4 @@ Never commit `.env` or put credentials in client code. `.env` is excluded by `.g
 
 ## Data freshness
 
-Team and YSWS data refresh at startup and periodically. Official Hack Club pages and repositories are cached and refreshed periodically. Slack announcement dates refer to the original posts; snapshot dates refer to the local cache. Verify time-sensitive program, deadline, and funding details with the linked source.
+Team and YSWS caches load at startup and refresh periodically; relevant questions can trigger a coalesced refresh no more than once every five minutes. Named YSWS status answers refresh the catalog before responding and disclose when they fall back to cached data. Official Hack Club pages and repositories are cached and refreshed periodically. Slack announcement dates refer to the original posts; snapshot dates refer to the local cache. Verify time-sensitive program, deadline, and funding details with the linked source.

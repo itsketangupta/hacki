@@ -2,6 +2,10 @@ import fs from 'node:fs/promises';
 import { config } from '../config.js';
 
 let cachedTeam = null;
+let lastFetchAt = 0;
+let lastFetchAttemptAt = 0;
+let fetchInFlight = null;
+const MIN_REFRESH_INTERVAL_MS = 5 * 60 * 1000;
 
 // Core known leadership and founders as reliable baseline & enhancement
 const knownLeadership = [
@@ -96,13 +100,28 @@ const knownLeadership = [
   }
 ];
 
-export async function fetchTeam() {
+export async function fetchTeam({ force = false } = {}) {
+  if (fetchInFlight) return fetchInFlight;
+  if (!force && lastFetchAttemptAt && Date.now() - lastFetchAttemptAt < MIN_REFRESH_INTERVAL_MS) {
+    return cachedTeam || loadTeam();
+  }
+  lastFetchAttemptAt = Date.now();
+  fetchInFlight = refreshTeam();
+  try {
+    return await fetchInFlight;
+  } finally {
+    fetchInFlight = null;
+  }
+}
+
+async function refreshTeam() {
   console.log('[TeamScraper] Fetching team directory from https://hackclub.com/team...');
   try {
     const res = await fetch('https://hackclub.com/team', {
       headers: {
         'User-Agent': 'HackiBot/1.0 (Hack Club Community Assistant; https://hackclub.com)'
-      }
+      },
+      signal: AbortSignal.timeout(10000)
     });
     if (!res.ok) throw new Error(`HTTP ${res.status} from hackclub.com/team`);
     const html = await res.text();
@@ -206,13 +225,19 @@ export async function fetchTeam() {
     await fs.writeFile(config.teamFile, JSON.stringify(members, null, 2), 'utf8');
 
     cachedTeam = members;
+    lastFetchAt = Date.now();
     console.log(`[TeamScraper] Successfully indexed ${members.length} team members.`);
     return members;
   } catch (error) {
     console.error(`[TeamScraper] Failed to fetch live team: ${error.message}`);
     // If cache exists, return it
     if (cachedTeam && cachedTeam.length > 0) return cachedTeam;
-    return loadTeam();
+    try {
+      cachedTeam = JSON.parse(await fs.readFile(config.teamFile, 'utf8'));
+      return cachedTeam;
+    } catch {
+      return [];
+    }
   }
 }
 
@@ -221,6 +246,10 @@ export async function loadTeam() {
   try {
     const data = await fs.readFile(config.teamFile, 'utf8');
     cachedTeam = JSON.parse(data);
+    try {
+      const stat = await fs.stat(config.teamFile);
+      lastFetchAt = Math.max(lastFetchAt, stat.mtimeMs);
+    } catch {}
     return cachedTeam;
   } catch {
     // If not on disk yet, fetch it
