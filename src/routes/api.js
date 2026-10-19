@@ -4,7 +4,7 @@ import fs from 'node:fs/promises';
 import { askHacki } from '../ai/hackiAgent.js';
 import { loadTeam, searchTeam, fetchTeam } from '../scrapers/teamScraper.js';
 import { loadYSWS, searchYSWS, getNewYSWS, getActiveYSWS, fetchYSWS } from '../scrapers/yswsScraper.js';
-import { loadAnnouncements, getHiringOpportunities, getRecentAnnouncements } from '../slack/announcementsCollector.js';
+import { loadAnnouncements, getHiringOpportunities, getRecentAnnouncements, searchAnnouncements } from '../slack/announcementsCollector.js';
 import { getSessionUser } from '../auth/hackclubAuth.js';
 import { autoAddUserToHackiChannel } from '../slack/slackChannelManager.js';
 import { config } from '../config.js';
@@ -330,8 +330,54 @@ apiRouter.get('/ysws', async (req, res) => {
 // ---------------------------------------------------------------------------
 apiRouter.get('/opportunities', async (req, res) => {
   try {
-    const opportunities = await getHiringOpportunities();
-    res.json({ ok: true, count: opportunities.length, opportunities });
+    const query = String(req.query.q || '').trim().slice(0, 160);
+    const type = ['all', 'roles', 'programs', 'events'].includes(req.query.type) ? req.query.type : 'all';
+    const base = query ? await searchAnnouncements(query) : await loadAnnouncements();
+    const today = new Date().toISOString().slice(0, 10);
+    const opportunities = base
+      .filter(item => {
+        const categories = Array.isArray(item.categories) ? item.categories : [];
+        const tags = Array.isArray(item.tags) ? item.tags : [];
+        const role = item.isHiring || categories.includes('hiring') || tags.includes('hiring');
+        const program = item.isYSWS || categories.includes('ysws') || tags.includes('ysws');
+        const event = item.kind === 'event' || categories.includes('event');
+        const opportunity = item.isOpportunity || categories.includes('opportunity') || tags.includes('opportunity');
+        if (type === 'roles') return role;
+        if (type === 'programs') return program || opportunity;
+        if (type === 'events') return event;
+        return role || program || event || opportunity;
+      })
+      .sort((a, b) => Number(String(b.timestamp || 0).split('.')[0]) - Number(String(a.timestamp || 0).split('.')[0]))
+      .slice(0, 40)
+      .map(item => {
+        const publishedDate = item.timestamp
+          ? new Date(Number(String(item.timestamp).split('.')[0]) * 1000).toISOString().slice(0, 10)
+          : null;
+        const eventDate = item.eventDate || null;
+        const deadlineMatch = `${item.title || ''}\n${item.cleanText || item.summary || ''}`.match(/\b(?:deadline|closes?|due)\b[^\n.]{0,50}?\b(?:on\s+)?([A-Z][a-z]+\s+\d{1,2}(?:,\s*\d{4})?|\d{4}-\d{2}-\d{2})/i);
+        const parsedDeadline = deadlineMatch?.[1] ? Date.parse(deadlineMatch[1]) : NaN;
+        const deadline = Number.isFinite(parsedDeadline) ? new Date(parsedDeadline).toISOString().slice(0, 10) : null;
+        const status = eventDate && eventDate < today
+          ? 'Past event'
+          : deadline && deadline < today
+            ? 'Deadline passed'
+            : deadline
+              ? `Deadline ${deadline}`
+              : 'Check source for current status';
+        return {
+          id: item.id,
+          title: item.eventTitle || item.title || 'Hack Club update',
+          summary: item.cleanText || item.summary || item.slackSummary || '',
+          channel: item.channel || item.source || 'Hack Club',
+          url: item.url || item.eventUrl || null,
+          publishedDate,
+          eventDate,
+          deadline,
+          status,
+          kind: item.kind || (item.isHiring ? 'role' : item.isYSWS ? 'program' : 'opportunity')
+        };
+      });
+    res.json({ ok: true, count: opportunities.length, query, type, opportunities, snapshotDate: today });
   } catch (error) {
     res.status(500).json({ ok: false, error: error.message });
   }

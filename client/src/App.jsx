@@ -28,6 +28,7 @@ function Icon({ name, size = 20 }) {
     close: <path d="M18 6 6 18M6 6l12 12" />,
     menu: <><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18"/></>,
     plus: <path d="M12 5v14M5 12h14" />,
+    search: <><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></>,
     edit: <><path d="M12 20h9"/><path d="m16.5 3.5 4 4L7 21l-4 1 1-4Z"/></>,
     trash: <><path d="M3 6h18M8 6V4h8v2m3 0-1 14H6L5 6m4 4v7m6-7v7"/></>,
     send: <><path d="M12 19V5M5 12l7-7 7 7"/></>,
@@ -150,6 +151,62 @@ function AuthModal() {
   </div>;
 }
 
+function OpportunityFinder() {
+  const [query, setQuery] = useState('');
+  const [type, setType] = useState('all');
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [searched, setSearched] = useState(false);
+
+  const search = useCallback(async (nextQuery = query, nextType = type) => {
+    setLoading(true);
+    setError('');
+    try {
+      const params = new URLSearchParams({ type: nextType });
+      if (nextQuery.trim()) params.set('q', nextQuery.trim());
+      const response = await fetch(`/api/opportunities?${params}`, { cache: 'no-store' });
+      const data = await response.json();
+      if (!response.ok || !data.ok) throw new Error(data.error || 'Could not search opportunities.');
+      setItems(data.opportunities || []);
+      setSearched(true);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }, [query, type]);
+
+  useEffect(() => { search('', 'all'); }, []);
+
+  const filters = [['all', 'All'], ['roles', 'Roles'], ['programs', 'Programs & YSWS'], ['events', 'Events']];
+  return <section className="opportunity-finder" aria-labelledby="opportunity-title">
+    <div className="opportunity-heading">
+      <div><span className="opportunity-eyebrow">LIVE FROM HACK CLUB SOURCES</span><h1 id="opportunity-title">Find your next opportunity</h1>
+        <p>Search recent Slack bulletins for programs, events, roles, bounties, and calls for help. Every result links to its original post.</p></div>
+    </div>
+    <form className="opportunity-search" onSubmit={event => { event.preventDefault(); search(); }}>
+      <input value={query} onChange={event => setQuery(event.target.value)} placeholder="Try: remote reviewer, hardware, game YSWS…" aria-label="Search Hack Club opportunities" />
+      <button className="opportunity-search-button" type="submit" disabled={loading}>{loading ? 'Searching…' : 'Search'}</button>
+    </form>
+    <div className="opportunity-filters" role="group" aria-label="Opportunity type">
+      {filters.map(([id, label]) => <button key={id} type="button" className={type === id ? 'selected' : ''} onClick={() => { setType(id); search(query, id); }}>{label}</button>)}
+    </div>
+    <div className="opportunity-results-heading"><h2>{searched ? `${items.length} matching posts` : 'Recent posts'}</h2><span>Old posts are labeled; confirm availability in the source.</span></div>
+    {error && <div className="opportunity-state">{error}</div>}
+    {!error && !loading && items.length === 0 && <div className="opportunity-state">No matching posts in the current Slack snapshot. Try a broader search or check back after the next sync.</div>}
+    <div className="opportunity-grid">{items.map(item => <article className="opportunity-card" key={item.id || item.url}>
+      <div className="opportunity-card-meta"><span>#{item.channel}</span><span>{item.publishedDate || 'Date unavailable'}</span></div>
+      <h3>{item.title}</h3>
+      <p>{String(item.summary || 'Open the source post for details.').slice(0, 380)}{String(item.summary || '').length > 380 ? '…' : ''}</p>
+      <div className={`opportunity-status ${item.status === 'Past event' || item.status === 'Deadline passed' ? 'stale' : ''}`}>{item.status}</div>
+      <div className="opportunity-card-actions">{item.url ? <a href={item.url} target="_blank" rel="noopener noreferrer">Open source <span aria-hidden="true">↗</span></a> : <span>Source link unavailable</span>}{item.eventDate && <span>Event: {item.eventDate}</span>}</div>
+    </article>)}</div>
+    {loading && <div className="opportunity-state">Searching the latest indexed posts…</div>}
+    <p className="opportunity-freshness">This view searches Hacki’s collected Slack snapshot. It can’t guarantee a post is still open; check deadlines and eligibility at the linked source.</p>
+  </section>;
+}
+
 export default function App() {
   const [theme, setTheme] = useState(() => {
     try { return localStorage.getItem('hacki-theme') || 'system'; } catch { return 'system'; }
@@ -161,6 +218,7 @@ export default function App() {
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
   const [pendingChatId, setPendingChatId] = useState(null);
+  const [opportunitiesOpen, setOpportunitiesOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(() => typeof window !== 'undefined' && window.innerWidth > 768);
   const textareaRef = useRef(null);
   const conversationRef = useRef(null);
@@ -235,6 +293,7 @@ export default function App() {
   }, []);
 
   function createNewChat() {
+    setOpportunitiesOpen(false);
     const chat = newChat();
     setChats(current => [chat, ...current]);
     setActiveId(chat.id);
@@ -327,6 +386,7 @@ export default function App() {
             <button className="sidebar-toggle-btn" title="Close sidebar" aria-label="Close sidebar" onClick={() => setSidebarOpen(false)}><Icon name="close" /></button>
           </div>
           <button className="new-chat-btn" onClick={createNewChat}><Icon name="plus" size={18}/><span>New chat</span></button>
+          <button className={`new-chat-btn opportunity-nav-btn ${opportunitiesOpen ? 'selected' : ''}`} onClick={() => { setOpportunitiesOpen(true); if (window.innerWidth <= 768) setSidebarOpen(false); }}><Icon name="search" size={18}/><span>Find opportunities</span></button>
         </div>
         <div className="sidebar-chats">
           {chats.length === 0 ? <div className="chat-history-empty-notice">{authReady && user ? 'Loading your conversations…' : 'Sign in to see your conversations'}</div> : chats.map(chat => <div key={chat.id} className={`chat-history-item ${chat.id === activeChat?.id ? 'active' : ''}`} onClick={() => { setActiveId(chat.id); if (window.innerWidth <= 768) setSidebarOpen(false); }}>
@@ -352,19 +412,19 @@ export default function App() {
           </div>
         </header>
 
-        <div className="conversation-container" ref={conversationRef}>
+        {opportunitiesOpen ? <div className="conversation-container opportunity-container"><OpportunityFinder/></div> : <div className="conversation-container" ref={conversationRef}>
           {onFreshChat && <div className="empty-state">
             <div className="empty-logo-wrap"><img src="/hacki-logo.png" alt="Hacki" className="empty-hacki-logo"/></div>
             <h2 className="empty-title">Welcome to Hack Club!</h2><p className="empty-desc">I am Hacki, here to help you. Whichever question you have, ask me!</p>
             <div className="empty-prompts-grid">{STARTER_PROMPTS.map(([icon, label, query]) => <button key={label} className="empty-prompt-card" onClick={() => handleSend(query)}><span className="prompt-icon">{icon}</span><span className="prompt-text">{label}</span></button>)}</div>
           </div>}
           {activeChat?.messages?.length > 0 && <div className="messages-list">{activeChat.messages.map((message, index) => <Message key={message.id || `${activeChat.id}-${index}`} message={message}/>)}{pendingChatId === activeChat.id && <TypingIndicator/>}</div>}
-        </div>
+        </div>}
 
-        <div className="input-container"><div className="input-box">
+        {!opportunitiesOpen && <div className="input-container"><div className="input-box">
           <textarea ref={textareaRef} rows={1} placeholder={user ? 'Message Hacki…' : 'Sign in with Hack Club to chat'} disabled={!user || sending} value={draft} onChange={handleTextareaChange} onKeyDown={handleKeyDown} aria-label="Message Hacki" />
           <button className="send-btn" onClick={() => handleSend()} disabled={!user || sending || !draft.trim()} title="Send message" aria-label="Send message"><Icon name="send" size={18}/></button>
-        </div><div className="disclaimer">Hacki can make mistakes. Check verified Hack Club sources on Slack &amp; <a href="https://hackclub.com" target="_blank" rel="noopener noreferrer">hackclub.com</a>.</div></div>
+        </div><div className="disclaimer">Hacki can make mistakes. Check verified Hack Club sources on Slack &amp; <a href="https://hackclub.com" target="_blank" rel="noopener noreferrer">hackclub.com</a>.</div></div>}
       </main>
     </div>
     {authReady && !user && <AuthModal/>}

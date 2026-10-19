@@ -10,6 +10,7 @@ The web client uses **React** and **Vite**. An **Express** server provides the a
 - System, light, and dark themes.
 - Hack Club OAuth sign-in and account-scoped SQLite chat history synced across devices.
 - Retrieval from the Hack Club team directory, live YSWS catalog, Slack bulletins, and cached official Hack Club pages and repositories.
+- A searchable Opportunity Finder for recent Slack roles, program launches, events, bounties, and other calls for participation, with original post links and dates.
 - Source snapshot dates for time-sensitive answers.
 - Optional Slack bot replies to direct messages and explicit mentions.
 - Slack collection from configured announcement, bulletin, YSWS, opportunity, and bounty channel families.
@@ -72,7 +73,7 @@ Never commit `.env` or put credentials in client code. `.env` is excluded by `.g
 | `GET` | `/api/status` | Catalog and collector counts |
 | `GET` | `/api/team?q=...` | Search the team cache |
 | `GET` | `/api/ysws?q=...` | Search YSWS catalog (`?new=true` for newly opened entries) |
-| `GET` | `/api/opportunities` | Cached Slack hiring and opportunity callouts |
+| `GET` | `/api/opportunities?q=...&type=all` | Search cached Slack opportunities; types: `all`, `roles`, `programs`, `events` |
 | `POST` | `/api/sync` | Start a background team and YSWS refresh |
 
 ## Project layout
