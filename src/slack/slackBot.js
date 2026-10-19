@@ -10,6 +10,9 @@ import { autoAddUserToHackiChannel } from './slackChannelManager.js';
 let botApp = null;
 const welcomedUsersFile = path.join(config.dataDir, 'welcomed_users.json');
 let welcomedUsers = new Set();
+const dmHistories = new Map();
+const DM_HISTORY_TTL_MS = 30 * 60 * 1000;
+const DM_HISTORY_LIMIT = 12;
 
 const botLogger = {
   debug: () => {},
@@ -82,14 +85,66 @@ export async function sendWelcomeMessage(slackUserId) {
  * Truncate a message to Slack's block text limit (3000 chars) and strip markdown
  * code fences that can cause issues in Slack's plain text mode.
  */
-function formatForSlack(text) {
+function formatForSlack(text, sources = []) {
   // Replace markdown code fences (``` ... ```) with plain indented text for Slack
   let out = String(text || '').replace(/```[\w]*\n?([\s\S]*?)```/g, (_, code) => code.trim());
+  out = out
+    .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<$2|$1>')
+    .replace(/\*\*([^*]+)\*\*/g, '*$1*');
+  const links = [...new Map((sources || [])
+    .filter(source => source?.url && /^https?:\/\//i.test(source.url))
+    .map(source => [source.url, source])).values()].slice(0, 4);
+  if (links.length) {
+    out += `\n\n*Sources:* ${links.map(source => `<${source.url}|${String(source.title || 'Open source').replace(/[|<>]/g, '')}>`).join(' · ')}`;
+  }
   // Slack block text limit is 3000 chars
   if (out.length > 3000) {
     out = out.slice(0, 2900) + '\n\n_...response truncated. Ask on [hackclub.com](https://hackclub.com) for more!_';
   }
   return out;
+}
+
+function cleanMessageForContext(text = '') {
+  return String(text)
+    .replace(/<@([A-Z0-9]+)>/g, '@member')
+    .replace(/<((?:https?:\/\/)[^>|]+)\|([^>]+)>/g, '$2 ($1)')
+    .replace(/<(https?:\/\/[^>]+)>/g, '$1')
+    .trim()
+    .slice(0, 3000);
+}
+
+async function getSlackThreadHistory(client, event) {
+  if (!event.thread_ts) return [];
+  try {
+    const result = await client.conversations.replies({
+      channel: event.channel,
+      ts: event.thread_ts,
+      limit: 20
+    });
+    return (result.messages || [])
+      .filter(message => message.ts !== event.ts && message.text)
+      .slice(-8)
+      .map(message => ({
+        role: message.bot_id || message.user === botApp?.botId ? 'assistant' : 'user',
+        content: cleanMessageForContext(message.text)
+      }));
+  } catch (err) {
+    console.log(`[SlackBot] Thread context unavailable; answering the mention alone (${err.data?.error || err.message}).`);
+    return [];
+  }
+}
+
+function getRecentDMHistory(channelId) {
+  const entry = dmHistories.get(channelId);
+  if (!entry || Date.now() - entry.updatedAt > DM_HISTORY_TTL_MS) {
+    dmHistories.delete(channelId);
+    return [];
+  }
+  return entry.messages.slice(-DM_HISTORY_LIMIT);
+}
+
+function saveDMHistory(channelId, messages) {
+  dmHistories.set(channelId, { messages: messages.slice(-DM_HISTORY_LIMIT), updatedAt: Date.now() });
 }
 
 export async function initSlackBot() {
@@ -131,10 +186,11 @@ export async function initSlackBot() {
 
         // Strip the bot mention tag
         const cleanPrompt = event.text.replace(/<@[A-Z0-9]+>/g, '').trim();
-        const response = await askHacki(cleanPrompt);
+        const threadHistory = await getSlackThreadHistory(botApp.client, event);
+        const response = await askHacki(cleanPrompt, threadHistory);
 
         await say({
-          text: formatForSlack(response.answer),
+          text: formatForSlack(response.answer, response.sources),
           thread_ts: event.ts  // reply in thread when mentioned in a channel
         });
       } catch (err) {
@@ -165,10 +221,16 @@ export async function initSlackBot() {
             });
           }
 
-          const response = await askHacki(message.text);
+          const previousMessages = getRecentDMHistory(message.channel);
+          const response = await askHacki(message.text, previousMessages);
           await say({
-            text: formatForSlack(response.answer)
+            text: formatForSlack(response.answer, response.sources)
           });
+          saveDMHistory(message.channel, [
+            ...previousMessages,
+            { role: 'user', content: cleanMessageForContext(message.text) },
+            { role: 'assistant', content: response.answer }
+          ]);
         } catch (err) {
           console.error('[SlackBot] Error replying to DM:', err.message);
           await say({

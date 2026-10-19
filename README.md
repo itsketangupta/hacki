@@ -13,8 +13,26 @@ The web client uses **React** and **Vite**. An **Express** server provides the a
 - A searchable Opportunity Finder for recent Slack roles, program launches, events, bounties, and other calls for participation, with original post links and dates.
 - Source snapshot dates for time-sensitive answers.
 - Optional Slack bot replies to direct messages and explicit mentions.
+- Slack replies include source links, use available thread context, and keep short-lived context for follow-up questions in a DM.
 - Slack collection from configured announcement, bulletin, YSWS, opportunity, and bounty channel families.
 - A linked Slack user is invited to `#hacki` only after sending a website chat, DMing Hacki, or mentioning Hacki. Signing in alone does not invite them; the bot does not send a welcome DM or channel post.
+
+## What the Hack Club connection adds
+
+These are Hacki's ten Hack Club-specific capabilities. They depend on the bot's Slack access and the freshness of its collected sources; Hacki labels dates and links back to the original post so people can verify time-sensitive details.
+
+1. Search collected Hack Club announcement and bulletin channels for real posts.
+2. Filter the Opportunity Finder for roles, programs, and events.
+3. Open the original Slack post from an answer or search result.
+4. See when a post was published and whether a listed event date has passed.
+5. Search Hack Club's YSWS catalog and distinguish active or newly listed programs.
+6. Look up Hack Club team members and roles from the team directory.
+7. Retrieve answers from cached official Hack Club pages and repositories.
+8. Ask Hacki directly in Slack DMs or with an explicit mention.
+9. Let a Slack thread mention use the surrounding thread messages as context.
+10. Ask follow-up questions in a DM with temporary, per-conversation context (cleared after 30 minutes of inactivity or a server restart).
+
+This is a Hack Club-focused assistant, not a claim that Hacki is better at every general task. It can only search Slack channels that the bot can access, and its source snapshot may lag behind a new post.
 
 ## Architecture
 
