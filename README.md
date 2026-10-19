@@ -17,7 +17,7 @@ The web client uses **React** and **Vite**. An **Express** server provides the a
 - Source snapshot dates for time-sensitive answers.
 - Optional Slack bot replies to direct messages and explicit mentions.
 - Slack replies include source links, use available thread context, and keep short-lived context for follow-up questions in a DM.
-- Slack collection from configured announcement, bulletin, YSWS, opportunity, and bounty channel families.
+- Slack collection from configured announcement, bulletin, YSWS, opportunity, and bounty channel families; bulletin and opportunity channels are processed first, and sync pauses cleanly on rate limits.
 - A linked Slack user is invited to `#hacki` only after sending a website chat, DMing Hacki, or mentioning Hacki. Signing in alone does not invite them; the bot does not send a welcome DM or channel post.
 
 ## What the Hack Club connection adds

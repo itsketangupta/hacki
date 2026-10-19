@@ -7,6 +7,8 @@ let cachedAnnouncements = [];
 let slackApp = null;
 let syncTimer = null;
 let nextChannelToSync = 0;
+let syncInFlight = false;
+let historyRetryAt = 0;
 const CHANNELS_CACHE_FILE = path.join(config.dataDir, 'slack_channels_cache.json');
 const ANNOUNCEMENTS_CHECKED_FILE = path.join(config.dataDir, 'announcements.checked-at');
 const ANNOUNCEMENTS_CACHE_LIMIT = 10000;
@@ -209,6 +211,18 @@ function shouldJoinChannel(name) {
     JOIN_KEYWORDS.some(keyword => n.includes(keyword));
 }
 
+function channelSyncPriority(channel) {
+  const name = String(channel.name || '').toLowerCase();
+  if (name.includes('bulletin') || name.includes('opportunit') || name.includes('bounty')) return 0;
+  if (name.includes('announcement') || name === 'announcements' || name === 'happenings') return 1;
+  if (name.includes('ysws')) return 2;
+  return 3;
+}
+
+function prioritizeChannels(channels) {
+  return [...channels].sort((a, b) => channelSyncPriority(a) - channelSyncPriority(b) || a.name.localeCompare(b.name));
+}
+
 // ---------------------------------------------------------------------------
 // Startup: join every existing matching channel (runs once in background)
 // ---------------------------------------------------------------------------
@@ -236,7 +250,7 @@ async function joinAllExistingChannels() {
     const raw = await fs.readFile(CHANNELS_CACHE_FILE, 'utf8');
     const parsed = JSON.parse(raw);
     if (parsed.channels?.length) {
-      cachedTargetChannels = parsed.channels;
+      cachedTargetChannels = prioritizeChannels(parsed.channels);
       channelCacheComplete = parsed.complete === true;
       lastSuccessfulChannelScanAt = channelCacheComplete ? Number(parsed.timestamp) || 0 : 0;
       if (channelCacheComplete && Date.now() - lastSuccessfulChannelScanAt < CHANNEL_RESCAN_INTERVAL_MS) {
@@ -270,7 +284,7 @@ async function joinAllExistingChannels() {
 
     console.log(`[SlackCollector] Total public channels in workspace: ${allChannels.length}`);
 
-    const targets = allChannels.filter(c => !c.is_archived && shouldJoinChannel(c.name));
+    const targets = prioritizeChannels(allChannels.filter(c => !c.is_archived && shouldJoinChannel(c.name)));
     cachedTargetChannels = targets;
     channelCacheComplete = true;
     lastSuccessfulChannelScanAt = Date.now();
@@ -358,6 +372,12 @@ export async function autoJoinMatchingChannel(channel, client) {
 
 async function syncPublicAnnouncements() {
   if (!slackApp) return;
+  if (syncInFlight) {
+    console.log('[SlackCollector] Previous sync is still running; skipping overlapping run.');
+    return;
+  }
+  if (Date.now() < historyRetryAt) return;
+  syncInFlight = true;
   console.log('[SlackCollector] Checking Slack announcement channels for new messages...');
 
   try {
@@ -388,11 +408,12 @@ async function syncPublicAnnouncements() {
     const existingIds = new Set(current.map(c => c.id));
 
     const batchSize = Math.min(CHANNELS_PER_SYNC, channels.length);
-    const batch = Array.from({ length: batchSize }, (_, offset) => channels[(nextChannelToSync + offset) % channels.length]);
-    nextChannelToSync = channels.length ? (nextChannelToSync + batch.length) % channels.length : 0;
+    const batchStart = nextChannelToSync;
+    const batch = Array.from({ length: batchSize }, (_, offset) => channels[(batchStart + offset) % channels.length]);
     console.log(`[SlackCollector] Syncing ${batch.length} of ${channels.length} channels in this batch.`);
 
     let successfulReads = 0;
+    let channelsAdvanced = 0;
     for (const ch of batch) {
       try {
         const histRes = await slackApp.client.conversations.history({
@@ -400,6 +421,7 @@ async function syncPublicAnnouncements() {
           limit: 25
         });
         successfulReads++;
+        channelsAdvanced++;
         await sleep(HISTORY_REQUEST_DELAY_MS);
 
         for (const msg of histRes.messages || []) {
@@ -434,14 +456,17 @@ async function syncPublicAnnouncements() {
         const retryFromMessage = String(err.message || '').match(/retry-after\D+(\d+)/i)?.[1];
         const retrySeconds = Number(retryHeader || retryFromMessage);
         if (retrySeconds > 0) {
-          console.warn(`[SlackCollector] Rate limited while reading #${ch.name}; retrying after ${retrySeconds}s.`);
-          await sleep((retrySeconds + 1) * 1000);
+          historyRetryAt = Date.now() + (retrySeconds + 1) * 1000;
+          console.warn(`[SlackCollector] Rate limited while reading #${ch.name}; pausing this batch and retrying it after the cooldown.`);
+          break;
         } else {
           // No access yet — will be retried in a later batch.
+          channelsAdvanced++;
           await sleep(HISTORY_REQUEST_DELAY_MS);
         }
       }
     }
+    nextChannelToSync = channels.length ? (batchStart + channelsAdvanced) % channels.length : 0;
 
     if (newCount > 0) {
       current.sort((a, b) => Number(b.timestamp) - Number(a.timestamp));
@@ -457,6 +482,8 @@ async function syncPublicAnnouncements() {
     }
   } catch (error) {
     console.warn(`[SlackCollector] Announcement sync notice: ${error.message}`);
+  } finally {
+    syncInFlight = false;
   }
 }
 
