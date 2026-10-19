@@ -422,7 +422,7 @@ export default function App() {
         </div>}
 
         {!opportunitiesOpen && <div className="input-container"><div className="input-box">
-          <textarea ref={textareaRef} rows={1} placeholder={user ? 'Message Hacki…' : 'Sign in with Hack Club to chat'} disabled={!user || sending} value={draft} onChange={handleTextareaChange} onKeyDown={handleKeyDown} aria-label="Message Hacki" />
+          <textarea id="chat-input" ref={textareaRef} rows={1} placeholder={user ? 'Message Hacki…' : 'Sign in with Hack Club to chat'} disabled={!user || sending} value={draft} onChange={handleTextareaChange} onKeyDown={handleKeyDown} aria-label="Message Hacki" />
           <button className="send-btn" onClick={() => handleSend()} disabled={!user || sending || !draft.trim()} title="Send message" aria-label="Send message"><Icon name="send" size={18}/></button>
         </div><div className="disclaimer">Hacki can make mistakes. Check verified Hack Club sources on Slack &amp; <a href="https://hackclub.com" target="_blank" rel="noopener noreferrer">hackclub.com</a>.</div></div>}
       </main>
