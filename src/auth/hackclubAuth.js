@@ -164,14 +164,18 @@ authRouter.get('/callback', async (req, res) => {
 // ---------------------------------------------------------------------------
 // 3. Logout
 // ---------------------------------------------------------------------------
-authRouter.get('/logout', (req, res) => {
+function logout(req, res) {
   const cookies = parseCookies(req.headers.cookie);
   if (cookies.hacki_session) deleteSession(cookies.hacki_session);
   if (cookies.hackwire_session) deleteSession(cookies.hackwire_session);
 
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
   res.setHeader('Set-Cookie', [
-    'hackwire_session=; HttpOnly; Path=/; SameSite=Lax; Max-Age=0',
-    'hacki_session=; HttpOnly; Path=/; SameSite=Lax; Max-Age=0'
+    'hackwire_session=; HttpOnly; Path=/; SameSite=Lax; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT',
+    'hacki_session=; HttpOnly; Path=/; SameSite=Lax; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT'
   ]);
   res.redirect('/');
-});
+}
+
+authRouter.get('/logout', logout);
+authRouter.post('/logout', logout);

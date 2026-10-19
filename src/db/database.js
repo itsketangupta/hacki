@@ -163,7 +163,8 @@ export function createSession(sessionId, user) {
 
 export function getSession(sessionId) {
   const row = getDb().prepare(`
-    SELECT * FROM sessions WHERE session_id = ? AND expires_at > datetime('now')
+    SELECT * FROM sessions
+    WHERE session_id = ? AND julianday(expires_at) > julianday('now')
   `).get(sessionId);
   if (!row) return null;
   try {
@@ -183,7 +184,10 @@ export function deleteUserSessions(userId) {
 
 /** Purge sessions that have already expired — call periodically */
 export function pruneExpiredSessions() {
-  getDb().prepare("DELETE FROM sessions WHERE expires_at <= datetime('now')").run();
+  getDb().prepare(`
+    DELETE FROM sessions
+    WHERE julianday(expires_at) <= julianday('now') OR julianday(expires_at) IS NULL
+  `).run();
 }
 
 // ---------------------------------------------------------------------------

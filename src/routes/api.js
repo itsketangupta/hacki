@@ -27,6 +27,13 @@ import {
 
 export const apiRouter = express.Router();
 
+// API responses include account and chat data; never let browsers or proxies
+// reuse a response after the session that authorized it has been revoked.
+apiRouter.use((req, res, next) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+  next();
+});
+
 async function getDataSnapshotDates() {
   const dates = { slack: null };
   for (const [source, file] of Object.entries({ team: config.teamFile, ysws: config.yswsFile })) {
