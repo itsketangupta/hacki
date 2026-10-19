@@ -254,7 +254,7 @@ export async function askHacki(userMessage, conversationHistory = []) {
     const usesHinglish = /\b(?:kya|hai|haan|han|bhai|kaise|kaisa|mujhe|mera|meri|bata|batao|samjha|matlab|accha|achha|theek|nahi|nah|karna|karo|chahiye)\b/i.test(query);
     let answer;
     if (isCasualGreeting) {
-      answer = usesHinglish ? 'Hey! Kya help chahiye? Hack Club ke baare mein kuch bhi poochho 🙂' : 'Hey! What can I help you with? Ask me anything about Hack Club 🙂';
+      answer = usesHinglish ? 'Hey! Kya help chahiye? General questions, writing, ideas, ya Hack Club ke baare mein poochho 🙂' : 'Hey! What can I help with? Ask a general question, get help writing or brainstorming, or ask about Hack Club 🙂';
     } else if (isCasualAcknowledgement) {
       answer = usesHinglish ? 'Theek hai 🙂 Aur kuch poochna ho toh bolo!' : 'Got it 🙂 Let me know what you need.';
     } else {
@@ -327,18 +327,7 @@ export async function askHacki(userMessage, conversationHistory = []) {
   fetchYSWS().catch(() => {});
 
   // 1. Gather relevant context based on intent
-  const { contextText, sources, detectedCategory, isOutOfScope } = await buildRAGContext(query);
-
-  // If query is out of scope of Hack Club
-  if (isOutOfScope && !isContextualShortFollowup) {
-    return {
-      answer: "I'm Hacki, the Hack Club assistant! I can only answer questions related to Hack Club, our team members, founders, Gappies, Teen Contributors, YSWS programs, free developer tools, grants, and community opportunities. Please ask about Hack Club or related topics!",
-      sources: [
-        { title: 'Hack Club', url: 'https://hackclub.com', type: 'general' }
-      ],
-      suggestedQueries: []
-    };
-  }
+  const { contextText, sources, detectedCategory } = await buildRAGContext(query);
 
   // If user is asking about Hacki's creator / developer
   if (detectedCategory === 'creator') {
@@ -399,13 +388,14 @@ export async function askHacki(userMessage, conversationHistory = []) {
   }
 
   // 2. Prepare system prompt
-  const systemPrompt = `You are Hacki, an assistant for the Hack Club community.
+  const systemPrompt = `You are Hacki, a helpful conversational AI made for the Hack Club community. You can also answer ordinary general questions, chat naturally, explain what you can do, brainstorm, solve problems, and draft or rewrite text for the user.
 Current date: ${new Date().toISOString().slice(0, 10)}.
 
-Your job is to give useful, clear answers about Hack Club programs, YSWS, events, opportunities, staff, tools, and Slack. Be conversational with greetings and short replies. Understand the user's language and answer in the same language; use simple Latin-script Hinglish when the user writes Hinglish.
+Answer the actual request without insisting that it be about Hack Club. For stable general knowledge, use your model knowledge. For fast-changing facts you cannot verify from current sources, say so and avoid presenting a guess as current. Be conversational with greetings and short replies. Understand the user's language and answer in the same language; use simple Latin-script Hinglish when the user writes Hinglish.
+When drafting a message, write from the point of view the user requested (often first person as the user); do not answer as Hacki unless they ask for a bot reply. A message that mentions its author is the creator/developer is not itself a question about the creator.
 
 ACCURACY:
-- Treat the retrieved excerpts in the current message as the evidence for Hack Club-specific claims. Your general model knowledge and earlier conversation do not override them.
+- When relevant Hack Club excerpts are provided, treat them as evidence for Hack Club-specific claims. Do not force Hack Club context into an unrelated question. Your general model knowledge and earlier conversation do not override retrieved evidence for current Hack Club facts.
 - Prefer a current official catalog or official page for status, deadlines, eligibility, funding, and policy. A Slack post is a community announcement; identify it as such and do not treat it as official policy unless it clearly comes from an authorized source.
 - Never infer that a program or opportunity is open from an old announcement, a post's presence in search, or a missing deadline. State the publication date and uncertainty when relevant.
 - If sources conflict, describe the conflict and favor the newest authoritative source. If no source answers the question, say what you could not verify and link to the best available source.
@@ -492,7 +482,7 @@ async function buildRAGContext(query) {
   }
 
   // 0. Check Creator / Developer queries
-  const isCreatorQuery = /\b(who (?:made|created|built|programmed|coded) you|who is your (?:creator|maker|developer|author)|creator|developer|ketan|ketan gupta|u093bdep8fj)\b/i.test(q);
+  const isCreatorQuery = /\b(who (?:made|created|built|programmed|coded) (?:you|hacki)|who is your (?:creator|maker|developer|author)|who (?:made|created|built) hacki|who is ketan gupta)\b/i.test(q);
   if (isCreatorQuery) {
     detectedCategory = 'creator';
     contextParts.push('=== HACKI CREATOR & DEVELOPER ===');
@@ -707,10 +697,8 @@ async function buildRAGContext(query) {
   // 11. Check Hacki / Who are you
   const isHackiQuery = /\b(what is hacki|who is hacki|who are you|what can you do|about hacki|what do you do)\b/i.test(q);
   if (isHackiQuery) {
-    sources.push({ title: 'Ketan Gupta (Creator)', url: 'https://hackclub.enterprise.slack.com/team/U093BDEP8FJ', type: 'creator' });
     contextParts.push('=== ABOUT HACKI (HACK CLUB AI ASSISTANT) ===');
-    contextParts.push('Hacki is the AI assistant and community companion for Hack Club!');
-    contextParts.push('- Created & Developed by: Ketan Gupta (Slack: @Ketan Gupta, Slack ID: U093BDEP8FJ, email: mrketanartist13@gmail.com).');
+    contextParts.push('Hacki is a conversational AI assistant built for the Hack Club community. It can chat naturally, explain its capabilities, answer general questions, and help with writing and brainstorming. It can also search its indexed Hack Club sources for team information, YSWS programs, official resources, and Slack opportunities.');
     contextParts.push('- Capabilities:');
     contextParts.push('  - Provides verified details about Hack Club team members, founders, Teen Contributors, and Gappies.');
     contextParts.push('  - Catalogs active and new YSWS programs, shipping criteria, and grant rules.');
@@ -779,19 +767,20 @@ async function buildRAGContext(query) {
   }
 
   // 14. Check Hiring / Reviewer / Fulfiller / Opportunities / Slack
-  const isHiringQuery = /\b(hire|hiring|reviewer|reviewing|fulfill|fulfil|fulfiller|fulfillment|organizer|mentor|volunteer|opportunity|opportunities|bulletin|announcement|slack)\b/i.test(q);
+  const isHiringQuery = /\b(hire|hiring|reviewer|reviewing|fulfill|fulfil|fulfiller|fulfillment|organizer|mentor|volunteer|opportunity|opportunities|bulletin|announcement)\b/i.test(q);
   const searchItems = await searchAnnouncements(q);
-  const isSlackQuery = isHiringQuery || /#[a-z0-9_-]+|\b(slack|bulletin|announcements?)\b/i.test(q) || searchItems.length > 0;
+  const isSlackQuery = isHiringQuery || /#[a-z0-9_-]+|\b(slack|bulletin|announcements?)\b/i.test(q);
 
   if (isSlackQuery) {
-    sources.push({ title: 'Hack Club Slack Bulletin Channels', url: 'https://hackclub.slack.com', type: 'slack' });
-
-    const hiringItems = await getHiringOpportunities();
-    const recentItems = await getRecentAnnouncements(6);
-    const relevantSlack = [...hiringItems, ...searchItems, ...recentItems];
+    const asksForLatest = /\b(latest|recent|newest|new|today|this week|recently|what(?:'s| is) happening|any updates)\b/i.test(q);
+    const asksBroadOpportunities = isHiringQuery && !/\b(?:what is|define|meaning of|explain)\b/i.test(q);
+    const relevantSlack = [...searchItems];
+    if (asksBroadOpportunities && searchItems.length === 0) relevantSlack.push(...await getHiringOpportunities());
+    if (asksForLatest && relevantSlack.length === 0) relevantSlack.push(...await getRecentAnnouncements(6));
+    if (relevantSlack.length) sources.push({ title: 'Hack Club Slack Bulletin Channels', url: 'https://hackclub.slack.com', type: 'slack' });
     const seenSlack = new Set();
 
-    contextParts.push('=== LATEST HACK CLUB SLACK ANNOUNCEMENTS & OPPORTUNITIES ===');
+    if (relevantSlack.length) contextParts.push('=== MATCHING HACK CLUB SLACK ANNOUNCEMENTS & OPPORTUNITIES ===');
     for (const item of relevantSlack) {
       if (seenSlack.has(item.id)) continue;
       seenSlack.add(item.id);
@@ -834,7 +823,7 @@ async function buildRAGContext(query) {
 
   // 15. General Hack Club knowledge (overview, mission, culture, clubs, hackathons)
   const isGeneralHackClub = /\b(hack club|hackclub|what is hack club|tell me about hack club|about hack club|how does hack club work|what does hack club do|club|clubs|hackathon|hackathons|vermont|shelburne)\b/i.test(q);
-  if (isGeneralHackClub || contextParts.length === 0) {
+  if (isGeneralHackClub) {
     sources.push({ title: 'Hack Club Website', url: 'https://hackclub.com', type: 'general' });
     contextParts.push('=== ABOUT HACK CLUB ===');
     contextParts.push('- What is Hack Club: Founded in 2014 by Zach Latta (at age 16) and Christina Asquith, Hack Club is a global 501(c)(3) nonprofit movement of high school and teenage hackers, makers, and coders.');

@@ -118,12 +118,13 @@ apiRouter.post('/chat', async (req, res) => {
     }
 
     // Call the AI
-    const dataDates = await getDataSnapshotDates();
     const result = await askHacki(message, aiHistory);
-    const datedSources = [
-      ...(result.sources || []),
-      { type: 'data_snapshot', dataDates }
-    ];
+    const resultSources = result.sources || [];
+    const hasHackClubSources = resultSources.some(source => ['ysws', 'team', 'programs', 'official', 'slack', 'creator', 'tool', 'hcb', 'general'].includes(source.type));
+    const dataDates = hasHackClubSources ? await getDataSnapshotDates() : null;
+    const datedSources = dataDates
+      ? [...resultSources, { type: 'data_snapshot', dataDates }]
+      : resultSources;
 
     // Save the assistant's reply
     appendMessage(chatSession.id, 'assistant', result.answer, datedSources);
@@ -134,7 +135,7 @@ apiRouter.post('/chat', async (req, res) => {
       chatKey: sessionKey,
       ...result,
       sources: datedSources,
-      dataDates
+      ...(dataDates ? { dataDates } : {})
     });
   } catch (error) {
     console.error('[API /chat error]', error);
