@@ -11,8 +11,8 @@ let botApp = null;
 const welcomedUsersFile = path.join(config.dataDir, 'welcomed_users.json');
 let welcomedUsers = new Set();
 const dmHistories = new Map();
-const DM_HISTORY_TTL_MS = 30 * 60 * 1000;
-const DM_HISTORY_LIMIT = 12;
+const DM_HISTORY_TTL_MS = 24 * 60 * 60 * 1000;
+const DM_HISTORY_LIMIT = 40;
 
 const botLogger = {
   debug: () => {},
@@ -119,11 +119,11 @@ async function getSlackThreadHistory(client, event) {
     const result = await client.conversations.replies({
       channel: event.channel,
       ts: event.thread_ts,
-      limit: 20
+      limit: 100
     });
     return (result.messages || [])
       .filter(message => message.ts !== event.ts && message.text)
-      .slice(-8)
+      .slice(-40)
       .map(message => ({
         role: message.bot_id || message.user === botApp?.botId ? 'assistant' : 'user',
         content: cleanMessageForContext(message.text)

@@ -332,7 +332,7 @@ export default function App() {
     setPendingChatId(chatId);
 
     try {
-      const history = [...activeChat.messages, userMessage].slice(-8).map(message => ({ role: message.role, content: message.text }));
+      const history = [...activeChat.messages, userMessage].slice(-40).map(message => ({ role: message.role, content: message.text }));
       const response = await fetch('/api/chat', {
         method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: text, history, chatKey: chatId, title })
