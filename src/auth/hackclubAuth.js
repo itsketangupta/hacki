@@ -236,13 +236,13 @@ authRouter.get('/unsubscribe', (req, res) => {
   const userId = String(req.query.user || '');
   const supplied = String(req.query.token || '');
   if (!validUnsubscribeRequest(userId, supplied)) return res.status(400).send('This unsubscribe link is invalid.');
-  const escapeHtml = value => value.replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
-  res.send(`<!doctype html><html><head><meta charset="utf-8"><title>Unsubscribe from Hacki</title></head><body style="font-family:system-ui;max-width:560px;margin:12vh auto;padding:24px;color:#242424"><h1>Stop Hacki email updates?</h1><p>Confirm to stop optional update emails. Account-related messages may still be sent.</p><form method="post" action="/auth/unsubscribe"><input type="hidden" name="user" value="${escapeHtml(userId)}"><input type="hidden" name="token" value="${escapeHtml(supplied)}"><button style="padding:10px 16px" type="submit">Unsubscribe</button></form></body></html>`);
+  setEmailMarketingOptIn(userId, false);
+  res.send('<!doctype html><html><head><meta charset="utf-8"><title>Email updates stopped</title></head><body style="font-family:system-ui;max-width:560px;margin:12vh auto;padding:24px;color:#242424"><h1>You are unsubscribed</h1><p>You will no longer receive Hacki update emails at this address. Account-related messages may still be sent.</p><p><a href="/">Back to Hacki</a></p></body></html>');
 });
 
 authRouter.post('/unsubscribe', express.urlencoded({ extended: false }), (req, res) => {
-  const userId = String(req.body?.user || '');
-  const supplied = String(req.body?.token || '');
+  const userId = String(req.query.user || req.body?.user || '');
+  const supplied = String(req.query.token || req.body?.token || '');
   if (!validUnsubscribeRequest(userId, supplied)) return res.status(400).send('This unsubscribe link is invalid.');
   setEmailMarketingOptIn(userId, false);
   res.send('<!doctype html><html><head><meta charset="utf-8"><title>Email updates stopped</title></head><body style="font-family:system-ui;max-width:560px;margin:12vh auto;padding:24px;color:#242424"><h1>You are unsubscribed</h1><p>You will no longer receive Hacki update emails at this address. Account-related messages may still be sent.</p><p><a href="/">Back to Hacki</a></p></body></html>');

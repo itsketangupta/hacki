@@ -124,7 +124,11 @@ apiRouter.post('/admin/email', async (req, res) => {
       return sendEmail({
         to: recipient.email,
         subject,
-        text: `${message}\n\n---\nYou received this because you opted in to Hacki email updates. Unsubscribe: ${unsubscribeUrl}`
+        text: `${message}\n\n---\nYou received this because you opted in to Hacki email updates. Unsubscribe: ${unsubscribeUrl}`,
+        headers: {
+          'List-Unsubscribe': `<${unsubscribeUrl}>`,
+          'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click'
+        }
       });
     }));
     for (const result of results) result.status === 'fulfilled' ? sent++ : failed++;
