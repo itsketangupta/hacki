@@ -424,7 +424,7 @@ export default function App() {
 
       <main className="main-content">
         <header className="topbar">
-          <div className="topbar-left"><button className="icon-button" title="Open sidebar" aria-label="Open sidebar" onClick={() => setSidebarOpen(true)}><Icon name="menu"/></button><div className="model-badge"><img src="/hacki-logo.png" alt="" className="model-logo"/><span className="model-title">Hacki</span><span className="model-version">AI</span></div></div>
+          <div className="topbar-left"><button className="icon-button" title="Open sidebar" aria-label="Open sidebar" onClick={() => setSidebarOpen(true)}><Icon name="menu"/></button><div className="model-badge"><img src="/hacki-logo.png" alt="" className="model-logo"/><span className="model-title">Hacki</span><span className="model-version">HACK CLUB HELPER</span></div></div>
           <div className="topbar-right">
             <div className="theme-control" role="group" aria-label="Choose appearance">{themeOptions.map(option => <button key={option.id} type="button" className="theme-icon-btn" data-theme-choice={option.id} aria-label={option.label} title={option.label} aria-pressed={theme === option.id} onClick={() => setTheme(option.id)}><svg viewBox="0 0 24 24" aria-hidden="true">{option.icon}</svg></button>)}</div>
             {!user && authReady && <a href="/auth/login" className="topbar-login-btn">Sign in</a>}
@@ -434,8 +434,10 @@ export default function App() {
 
         {opportunitiesOpen ? <div className="conversation-container opportunity-container"><OpportunityFinder/></div> : <div className="conversation-container" ref={conversationRef}>
           {onFreshChat && <div className="empty-state">
-            <div className="empty-logo-wrap"><img src="/hacki-logo.png" alt="Hacki" className="empty-hacki-logo"/></div>
-            <h2 className="empty-title">Welcome to Hack Club!</h2><p className="empty-desc">I am Hacki, here to help you. Whichever question you have, ask me!</p>
+            <div className="empty-kicker"><span className="empty-kicker-dot"/> A LITTLE HELP FOR YOUR NEXT BIG BUILD</div>
+            <div className="empty-hero-row"><div className="empty-logo-wrap"><img src="/hacki-logo.png" alt="Hacki" className="empty-hacki-logo"/></div><span className="empty-doodle" aria-hidden="true">✳</span></div>
+            <h2 className="empty-title">Make something<br className="desktop-break"/> cool.</h2><p className="empty-desc">Questions about Hack Club? Stuck on a project? Pull up a chair — let’s figure it out.</p>
+            <div className="prompt-section-label">A FEW PLACES TO START</div>
             <div className="empty-prompts-grid">{STARTER_PROMPTS.map(([icon, label, query]) => <button key={label} className="empty-prompt-card" onClick={() => handleSend(query)}><span className="prompt-icon">{icon}</span><span className="prompt-text">{label}</span></button>)}</div>
           </div>}
           {activeChat?.messages?.length > 0 && <div className="messages-list">{activeChat.messages.map((message, index) => <Message key={message.id || `${activeChat.id}-${index}`} message={message}/>)}{pendingChatId === activeChat.id && <TypingIndicator/>}</div>}
