@@ -805,7 +805,7 @@ body { font-family: Inter, ui-rounded, system-ui, sans-serif; }
 .empty-prompts-grid { margin: 0; max-width: 760px; gap: 9px; }
 .empty-prompt-card { min-height: 58px; border-color: var(--border-subtle); background: #fffdf9; border-radius: 13px; padding: 11px 14px; box-shadow: 0 2px 0 rgba(60,35,15,.025); }
 .empty-prompt-card:hover { background: #fff; border-color: #eea0a4; box-shadow: 0 5px 15px rgba(86,44,35,.08); transform: translateY(-2px) rotate(-.25deg); }
-.empty-prompt-card .prompt-icon { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 9px; background: #fff1df; }
+.empty-prompt-card .prompt-icon { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 9px; background: #30262c; }
 .empty-prompt-card .prompt-icon img { display: block; width: 24px; height: 24px; object-fit: contain; }
 .empty-prompt-card .prompt-text { color: var(--text-primary); font-size: 13px; font-weight: 650; }
 
@@ -829,7 +829,7 @@ body { font-family: Inter, ui-rounded, system-ui, sans-serif; }
 .disclaimer a { color: #bd293e; }
 .auth-modal-card { background: #fffaf3; border-color: var(--border-subtle); border-radius: 22px; }
 .auth-modal-title { color: var(--text-primary); }
-.auth-feature-icon { width: 24px; height: 24px; object-fit: contain; margin-top: 1px; }
+.auth-feature-icon { width: 22px; height: 22px; box-sizing: content-box; padding: 5px; border-radius: 8px; object-fit: contain; background: #30262c; margin-top: 1px; }
 .auth-feature-info strong { color: var(--text-primary); }
 
 @media (max-width: 768px) {
@@ -840,7 +840,7 @@ body { font-family: Inter, ui-rounded, system-ui, sans-serif; }
 }
 
 :root[data-theme="dark"] .empty-prompt-card { background: #242127; }
-:root[data-theme="dark"] .empty-prompt-card .prompt-icon { background: #3a2b2e; }
+:root[data-theme="dark"] .empty-prompt-card .prompt-icon { background: #30262c; }
 :root[data-theme="dark"] .empty-prompt-card:hover { background: #2c272e; }
 :root[data-theme="dark"] .new-chat-btn:first-of-type { background: #2a2227; }
 :root[data-theme="dark"] .msg-source-tag { background: #252129; }

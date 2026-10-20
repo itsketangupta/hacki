@@ -4,7 +4,7 @@ import remarkGfm from 'remark-gfm';
 import './style.css';
 
 const STARTER_PROMPTS = [
-  ['/icons/dinosaur.png', 'What is Hack Club?', 'What is Hack Club?'],
+  ['/icons/hackclub.png', 'What is Hack Club?', 'What is Hack Club?'],
   ['/icons/rocket.png', 'What is YSWS?', 'What is YSWS? (You Ship, We Ship)'],
   ['/icons/tree.png', 'Where is HQ located?', 'Where is HQ located?'],
   ['/icons/graduation.png', 'Who are gappies?', 'Who are gappies?'],
@@ -12,7 +12,7 @@ const STARTER_PROMPTS = [
   ['/icons/card.png', 'What is HCB?', 'What is HCB? (Hack Club Bank)'],
   ['/icons/rocket.png', 'How to make a YSWS?', 'How do I make a YSWS?'],
   ['/icons/id.png', 'How to verify ID?', 'How to verify ID?'],
-  ['/icons/tools.png', 'Free tools (AI, Nest)', 'Hey is Hack Club give us free tools like ai.hackclub.com hackclub.app?'],
+  ['/icons/wrench.png', 'Free tools (AI, Nest)', 'Hey is Hack Club give us free tools like ai.hackclub.com hackclub.app?'],
   ['/icons/star.png', 'How to become a gappie?', 'How to become gappie?']
 ];
 

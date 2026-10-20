@@ -1,3 +1,6 @@
-Icons: Twemoji by Twitter, licensed under CC BY 4.0.
-License: https://creativecommons.org/licenses/by/4.0/
-Source: https://github.com/twitter/twemoji/tree/14.0.2
+White outline icons: Lucide by Lucide Contributors, ISC License.
+https://github.com/lucide-icons/lucide/blob/main/LICENSE
+
+Hack Club mark: official Hack Club asset, used without recoloring.
+https://hackclub.com/brand
+Source: https://assets.hackclub.com/icon-rounded.png
