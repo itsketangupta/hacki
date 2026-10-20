@@ -1624,7 +1624,7 @@ body { font-family: Inter, ui-rounded, system-ui, sans-serif; }
 }
 
 .email-updates-consent { display: flex; align-items: flex-start; gap: 9px; margin: 0 0 14px; color: var(--text-secondary); font-size: 11.5px; line-height: 1.45; cursor: pointer; }
-.email-updates-consent input, .user-email-preference input { accent-color: var(--primary-hc); }
+.email-updates-consent input { accent-color: var(--primary-hc); }
 
 .auth-modal-login-btn {
   display: flex;
@@ -1683,10 +1683,6 @@ body { font-family: Inter, ui-rounded, system-ui, sans-serif; }
 .user-slack-tag.clickable:hover {
   text-decoration: underline;
 }
-
-.user-email-preference { display: flex; align-items: center; gap: 5px; margin-top: 5px; color: var(--text-muted); font-size: 10.5px; cursor: pointer; }
-.user-email-preference input { width: 12px; height: 12px; margin: 0; }
-.user-email-preference-error { color: var(--primary-hc); font-size: 10px; overflow-wrap: anywhere; }
 
 .slack-dot {
   width: 6px;

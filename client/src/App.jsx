@@ -282,8 +282,6 @@ export default function App() {
   const [pendingChatId, setPendingChatId] = useState(null);
   const [opportunitiesOpen, setOpportunitiesOpen] = useState(false);
   const [adminOpen, setAdminOpen] = useState(false);
-  const [emailPreferenceBusy, setEmailPreferenceBusy] = useState(false);
-  const [emailPreferenceMessage, setEmailPreferenceMessage] = useState('');
   const [sidebarOpen, setSidebarOpen] = useState(() => typeof window !== 'undefined' && window.innerWidth > 768);
   const textareaRef = useRef(null);
   const conversationRef = useRef(null);
@@ -442,25 +440,6 @@ export default function App() {
     setActiveId(null);
   }
 
-  async function updateEmailPreference(event) {
-    const optIn = event.target.checked;
-    setEmailPreferenceBusy(true);
-    setEmailPreferenceMessage('');
-    try {
-      const response = await fetch('/api/account/email-preferences', {
-        method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ optIn })
-      });
-      const data = await response.json();
-      if (!response.ok || !data.ok) throw new Error(data.error || 'Could not save this setting.');
-      setUser(current => current ? { ...current, emailMarketingOptIn: data.emailMarketingOptIn } : current);
-    } catch (error) {
-      setEmailPreferenceMessage(error.message);
-    } finally {
-      setEmailPreferenceBusy(false);
-    }
-  }
-
   const onFreshChat = activeChat?.messages?.length === 0;
   const profileInitials = (user?.name || 'HC').slice(0, 2).toUpperCase();
 
@@ -486,7 +465,7 @@ export default function App() {
         <div className="sidebar-bottom"><div className="auth-section">
           {!user ? <a href="/auth/login" className="hc-auth-btn"><img src="/hackclub-flag.svg" alt="" className="auth-btn-icon"/><span>Sign in with Hack Club</span></a> : <div className="user-profile-card">
             <div className="user-avatar">{user.avatar ? <img src={user.avatar} alt=""/> : profileInitials}</div>
-            <div className="user-details"><div className="user-name">{user.name || 'Hack Clubber'}</div><div className="user-sub">{user.email || 'Hack Club Member'}</div>{user.slackId && <div className="user-slack-tag"><span className="slack-dot"/><span>Slack linked</span></div>}<label className="user-email-preference"><input type="checkbox" checked={Boolean(user.emailMarketingOptIn)} disabled={emailPreferenceBusy} onChange={updateEmailPreference}/><span>Email updates</span></label>{emailPreferenceMessage && <span className="user-email-preference-error">{emailPreferenceMessage}</span>}</div>
+            <div className="user-details"><div className="user-name">{user.name || 'Hack Clubber'}</div><div className="user-sub">{user.email || 'Hack Club Member'}</div>{user.slackId && <div className="user-slack-tag"><span className="slack-dot"/><span>Slack linked</span></div>}</div>
             <a href="/auth/logout" className="user-logout-btn" title="Sign out" aria-label="Sign out" onClick={logout}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg></a>
           </div>}
         </div></div>
