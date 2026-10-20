@@ -236,10 +236,10 @@ function AuthModal() {
       <div className="auth-modal-header">
         <div className="auth-modal-logo-wrapper"><img src="/hacki-logo.png" alt="Hacki" className="auth-modal-logo" /></div>
         <h2 className="auth-modal-title" id="auth-title">Welcome to Hacki</h2>
-        <p className="auth-modal-subtitle">Your Hack Club AI assistant and community companion</p>
+        <p className="auth-modal-subtitle">Verify your Hack Club account by signing in first. Then Hacki can chat with you. Need help with verification? Ask freely in Hack Club Slack’s #help channel.</p>
       </div>
       <div className="auth-modal-features">
-        <div className="auth-feature-row"><img className="auth-feature-icon" src="/icons/chat.png" alt=""/><div className="auth-feature-info"><strong>Chat with Hacki</strong><span>Sign in with your Hack Club account to start a conversation.</span></div></div>
+        <div className="auth-feature-row"><img className="auth-feature-icon" src="/icons/chat.png" alt=""/><div className="auth-feature-info"><strong>Verify to chat</strong><span>Sign in with your Hack Club account first. If verification gets stuck, ask for help in <a href="https://slack.hackclub.com" target="_blank" rel="noopener noreferrer">Hack Club Slack</a>.</span></div></div>
         <div className="auth-feature-row"><img className="auth-feature-icon" src="/icons/rocket.png" alt=""/><div className="auth-feature-info"><strong>Hack Club knowledge</strong><span>Get help with YSWS programs, tools, community opportunities, and more.</span></div></div>
         <div className="auth-feature-row"><img className="auth-feature-icon" src="/icons/lock.png" alt=""/><div className="auth-feature-info"><strong>Your saved conversations</strong><span>Your chat history syncs to your Hack Club account across devices.</span></div></div>
       </div>
@@ -551,7 +551,7 @@ export default function App() {
         </div>}
 
         {!opportunitiesOpen && !adminOpen && <div className="input-container"><div className="input-box">
-          <textarea id="chat-input" ref={textareaRef} rows={1} placeholder={user ? 'Message Hacki…' : 'Sign in with Hack Club to chat'} disabled={!user || sending} value={draft} onChange={handleTextareaChange} onKeyDown={handleKeyDown} aria-label="Message Hacki" />
+          <textarea id="chat-input" ref={textareaRef} rows={1} placeholder={user ? 'Message Hacki…' : 'Verify your Hack Club account to chat'} disabled={!user || sending} value={draft} onChange={handleTextareaChange} onKeyDown={handleKeyDown} aria-label="Message Hacki" />
           <button className="send-btn" onClick={() => handleSend()} disabled={!user || sending || !draft.trim()} title="Send message" aria-label="Send message"><Icon name="send" size={18}/></button>
         </div><div className="disclaimer">Hacki can make mistakes. Check verified Hack Club sources on Slack &amp; <a href="https://hackclub.com" target="_blank" rel="noopener noreferrer">hackclub.com</a>.</div></div>}
       </main>

@@ -396,6 +396,11 @@ export function getUserById(id) {
   return getDb().prepare('SELECT * FROM users WHERE id = ?').get(id) || null;
 }
 
+export function getUserBySlackId(slackId) {
+  if (!slackId) return null;
+  return getDb().prepare('SELECT * FROM users WHERE slack_id = ?').get(slackId) || null;
+}
+
 export function getAllUsers() {
   return getDb().prepare('SELECT * FROM users ORDER BY last_login_at DESC').all();
 }

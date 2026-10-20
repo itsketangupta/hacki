@@ -143,7 +143,7 @@ apiRouter.post('/chat', async (req, res) => {
   try {
     const user = getSessionUser(req);
     if (!user) {
-      return res.status(401).json({ ok: false, error: 'Sign in with Hack Club to chat with Hacki.' });
+      return res.status(401).json({ ok: false, error: 'Please verify your Hack Club account first by signing in with Hack Club. Then I can chat with you. If you need help with verification, ask freely!' });
     }
     const { message, history, chatKey, title } = req.body || {};
 

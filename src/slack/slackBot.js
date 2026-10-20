@@ -21,7 +21,7 @@ import {
   addSlackReminder, getDueSlackReminders, completeSlackReminder,
   getSlackRemindersForUser, deleteSlackReminder, eraseSlackUserData,
   setSlackInstructions, getSlackInstructions, deleteSlackInstructions,
-  recordSlackMention, recordSlackClarification
+  recordSlackMention, recordSlackClarification, getUserBySlackId
 } from '../db/database.js';
 
 let botApp = null;
@@ -33,6 +33,15 @@ const dmHistories = new Map();
 const DM_HISTORY_TTL_MS = 24 * 60 * 60 * 1000;
 const DM_HISTORY_LIMIT = 40;
 const pendingReminderIds = new Set();
+
+function isAuthVerificationHelpRequest(text = '') {
+  return /\b(auth(?:entication)?|verif(?:y|ied|ication)|sign\s?in|log\s?in|login|account)\b/i.test(text) &&
+    /\b(help|how|where|can't|cannot|issue|problem|stuck|trouble|unable|need)\b/i.test(text);
+}
+
+function verificationPrompt() {
+  return `Please verify your Hack Club account first by <${config.publicBaseUrl}/auth/login|signing in with Hack Club>. Then I can chat with you. If you need help with verification, just ask me here.`;
+}
 const pendingChannelPosts = new Map();
 const pendingEmailSends = new Map();
 const emailSendHistory = new Map();
@@ -1192,6 +1201,10 @@ export async function initSlackBot() {
     // 1. Listen for mentions (@Hacki what is the newest YSWS?)
     botApp.event('app_mention', async ({ event, say, client, body }) => {
       if (event.bot_id || event.subtype === 'bot_message') return;
+      if (!getUserBySlackId(event.user) && !isAuthVerificationHelpRequest(event.text)) {
+        await say({ text: verificationPrompt(), thread_ts: event.thread_ts || event.ts });
+        return;
+      }
       console.log(`[SlackBot] Received mention in #${event.channel} from ${event.user}`);
       const mentionEventKey = body?.event_id || `${event.channel}:${event.ts}:${event.user || ''}`;
       let channelName = null;
@@ -1350,6 +1363,10 @@ export async function initSlackBot() {
       const isOneToOneDM = message.channel_type === 'im' || (typeof message.channel === 'string' && message.channel.startsWith('D'));
 
       if (isDM) {
+        if (!getUserBySlackId(message.user) && !isAuthVerificationHelpRequest(message.text)) {
+          await say({ text: verificationPrompt() });
+          return;
+        }
         console.log(`[SlackBot] Received DM from ${message.user}: "${message.text}"`);
         try {
           if (await handleEmailCommand({
@@ -1479,6 +1496,10 @@ export async function initSlackBot() {
       if (message.thread_ts && !message.text.includes(`<@${botUserId}>`)) {
         try {
           if (!(await hasHackiParticipatedInThread(botApp.client, message))) return;
+          if (!getUserBySlackId(message.user) && !isAuthVerificationHelpRequest(message.text)) {
+            await say({ text: verificationPrompt(), thread_ts: message.thread_ts });
+            return;
+          }
           if (await handleChannelSearchCommand({ client: botApp.client, channelId: message.channel, text: message.text, threadTs: message.thread_ts, say })) return;
           if (await handleGitHubCommand({ text: message.text, threadTs: message.thread_ts, say })) return;
           if (await handlePageFetchCommand({ text: message.text, threadTs: message.thread_ts, say })) return;
