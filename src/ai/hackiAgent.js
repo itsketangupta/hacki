@@ -482,7 +482,8 @@ async function buildRAGContext(query) {
   }
 
   // 0. Check Creator / Developer queries
-  const isCreatorQuery = /\b(?:who\s+(?:make|makes|made|create|creates|created|build|builds|built|program|programs|programmed|code|codes|coded|develop|develops|developed)\s+(?:you|u|this\s+(?:tool|bot|assistant)|the\s+(?:tool|bot|assistant)|hacki)|who\s+is\s+your\s+(?:creator|maker|developer|author)|who\s+(?:make|makes|made|create|creates|created|build|builds|built|program|programs|programmed|code|codes|coded|develop|develops|developed)\s+hacki|who\s+is\s+ketan\s+gupta|(?:name|person)\s+of\s+(?:the\s+)?(?:person\s+)?who\s+(?:make|makes|made|create|created|build|built|develop|developed)\s+(?:you|u|hacki|this\s+(?:tool|bot|assistant)))\b/i.test(q);
+  const isSlackProfileQuery = /\b(?:slack\s*(?:user\s*)?(?:id|profile|link)|(?:profile|link|url)\s+(?:to|for|of)\s+(?:my\s+|your\s+|ketan(?:\'s)?\s+)?slack|slack\s+(?:profile|link)\s+(?:for|of)\s+(?:me|you|ketan))\b/i.test(q);
+  const isCreatorQuery = isSlackProfileQuery || /\b(?:who\s+(?:make|makes|made|create|creates|created|build|builds|built|program|programs|programmed|code|codes|coded|develop|develops|developed)\s+(?:you|u|this\s+(?:tool|bot|assistant)|the\s+(?:tool|bot|assistant)|hacki)|who\s+is\s+your\s+(?:creator|maker|developer|author)|who\s+(?:make|makes|made|create|creates|created|build|builds|built|program|programs|programmed|code|codes|coded|develop|develops|developed)\s+hacki|who\s+is\s+ketan\s+gupta|(?:name|person)\s+of\s+(?:the\s+)?(?:person\s+)?who\s+(?:make|makes|made|create|created|build|built|develop|developed)\s+(?:you|u|hacki|this\s+(?:tool|bot|assistant)))\b/i.test(q);
   if (isCreatorQuery) {
     detectedCategory = 'creator';
     contextParts.push('=== HACKI CREATOR & DEVELOPER ===');
