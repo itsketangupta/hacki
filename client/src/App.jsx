@@ -277,6 +277,7 @@ export default function App() {
   const conversationRef = useRef(null);
 
   const activeChat = useMemo(() => chats.find(chat => chat.id === activeId) || chats[0] || null, [chats, activeId]);
+  const savedChats = useMemo(() => chats.filter(chat => chat.messages?.some(message => message.role === 'user')), [chats]);
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
@@ -301,7 +302,9 @@ export default function App() {
         if (!response.ok) throw new Error('Could not load conversations.');
         let data = await response.json();
         const keys = new Set((data.sessions || []).map(session => session.session_key));
-        for (const chat of local) if (chat?.id && !keys.has(chat.id)) await importChat(chat);
+        for (const chat of local) {
+          if (chat?.id && chat.messages?.some(message => message.role === 'user') && !keys.has(chat.id)) await importChat(chat);
+        }
         response = await fetch('/api/chat/sessions', { credentials: 'include', cache: 'no-store' });
         data = await response.json();
         const loaded = await Promise.all((data.sessions || []).map(async session => {
@@ -316,7 +319,6 @@ export default function App() {
           else {
             const chat = newChat();
             setChats([chat]); setActiveId(chat.id);
-            importChat(chat).catch(error => console.warn('[Hacki] Could not create cloud chat:', error.message));
           }
         }
       } catch (error) {
@@ -348,11 +350,14 @@ export default function App() {
   function createNewChat() {
     setOpportunitiesOpen(false);
     setAdminOpen(false);
+    if (activeChat && activeChat.messages.length === 0) {
+      setActiveId(activeChat.id);
+      return;
+    }
     const chat = newChat();
     setChats(current => [chat, ...current]);
     setActiveId(chat.id);
     if (window.innerWidth <= 768) setSidebarOpen(false);
-    if (user) importChat(chat).catch(error => console.warn('[Hacki] Could not create cloud chat:', error.message));
     window.setTimeout(() => textareaRef.current?.focus(), 0);
   }
 
@@ -364,7 +369,6 @@ export default function App() {
       const replacement = newChat();
       setChats([replacement]);
       setActiveId(replacement.id);
-      if (user) importChat(replacement).catch(() => {});
       return;
     }
     setChats(remaining);
@@ -444,7 +448,7 @@ export default function App() {
           {user?.slackId === 'U093BDEP8FJ' && <button className={`new-chat-btn opportunity-nav-btn ${adminOpen ? 'selected' : ''}`} onClick={() => { setOpportunitiesOpen(false); setAdminOpen(true); if (window.innerWidth <= 768) setSidebarOpen(false); }}><Icon name="shield" size={18}/><span>Admin</span></button>}
         </div>
         <div className="sidebar-chats">
-          {chats.length === 0 ? <div className="chat-history-empty-notice">{authReady && user ? 'Loading your conversations…' : 'Sign in to see your conversations'}</div> : chats.map(chat => <div key={chat.id} className={`chat-history-item ${chat.id === activeChat?.id ? 'active' : ''}`} onClick={() => { setActiveId(chat.id); if (window.innerWidth <= 768) setSidebarOpen(false); }}>
+          {savedChats.length === 0 ? <div className="chat-history-empty-notice">{!authReady ? 'Loading…' : user ? 'Your conversations will appear here' : 'Sign in to see your conversations'}</div> : savedChats.map(chat => <div key={chat.id} className={`chat-history-item ${chat.id === activeChat?.id ? 'active' : ''}`} onClick={() => { setActiveId(chat.id); if (window.innerWidth <= 768) setSidebarOpen(false); }}>
             <span className="chat-history-title">{chat.title || 'New chat'}</span><button className="chat-history-delete" title="Delete chat" aria-label={`Delete ${chat.title || 'chat'}`} onClick={event => removeChat(chat.id, event)}><Icon name="trash" size={14}/></button>
           </div>)}
         </div>
