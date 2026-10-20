@@ -12,3 +12,8 @@ data/*.db-shm
 data/*.db-wal
 npm-debug.log*
 .DS_Store
+
+# Slack message snapshots stay local; never publish them in the repo.
+/data/announcements.json
+/data/announcements.checked-at
+/data/slack_channels_cache.json
