@@ -22,7 +22,9 @@ import {
   getSetting,
   setSetting,
   getAllSettings,
-  deleteSetting
+  deleteSetting,
+  setAnswerFeedback,
+  userOwnsAssistantMessage
 } from '../db/database.js';
 
 export const apiRouter = express.Router();
@@ -127,12 +129,13 @@ apiRouter.post('/chat', async (req, res) => {
       : resultSources;
 
     // Save the assistant's reply
-    appendMessage(chatSession.id, 'assistant', result.answer, datedSources);
+    const answerMessageId = appendMessage(chatSession.id, 'assistant', result.answer, datedSources);
 
     res.json({
       ok: true,
       user: user || null,
       chatKey: sessionKey,
+      answerMessageId,
       ...result,
       sources: datedSources,
       ...(dataDates ? { dataDates } : {})
@@ -141,6 +144,22 @@ apiRouter.post('/chat', async (req, res) => {
     console.error('[API /chat error]', error);
     res.status(500).json({ ok: false, error: error.message });
   }
+});
+
+// ---------------------------------------------------------------------------
+// Chat — answer feedback
+// ---------------------------------------------------------------------------
+apiRouter.post('/chat/feedback', (req, res) => {
+  const user = getSessionUser(req);
+  if (!user) return res.status(401).json({ ok: false, error: 'Sign in to rate answers.' });
+  const messageId = Number(req.body?.messageId);
+  const rating = Number(req.body?.rating);
+  if (!Number.isSafeInteger(messageId) || messageId < 1 || ![-1, 1].includes(rating)) {
+    return res.status(400).json({ ok: false, error: 'Choose thumbs up or thumbs down for a valid answer.' });
+  }
+  if (!userOwnsAssistantMessage(messageId, user.id)) return res.status(404).json({ ok: false, error: 'Answer not found.' });
+  setAnswerFeedback(messageId, user.id, rating);
+  res.json({ ok: true, rating });
 });
 
 // ---------------------------------------------------------------------------
@@ -188,7 +207,7 @@ apiRouter.get('/chat/sessions/:key', (req, res) => {
     if (!user) return res.status(401).json({ ok: false, error: 'Sign in to view chats.' });
     const session = getChatSessionByKey(req.params.key);
     if (!session || session.user_id !== user.id) return res.status(404).json({ ok: false, error: 'Chat not found.' });
-    const messages = getMessages(session.id);
+    const messages = getMessages(session.id, 200, user.id);
     res.json({ ok: true, session, messages });
   } catch (error) {
     res.status(500).json({ ok: false, error: error.message });

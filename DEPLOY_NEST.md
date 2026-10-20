@@ -33,7 +33,10 @@ cd hacki
 
 Install the required npm packages:
 
+Check that Nest is running Node.js 22.19 or newer before installing (required by the E2B SDK):
+
 ```bash
+node --version
 npm install
 ```
 
@@ -56,6 +59,19 @@ PORT=3000
 AI_API_KEY=sk-hc-v1-your-ai-hackclub-key
 AI_BASE_URL=https://ai.hackclub.com/proxy/v1
 AI_MODEL=openai/gpt-4o-mini
+# Optional fallback model, live web search/page fetch, code sandbox, and email
+# AI_FALLBACK_API_KEY=
+# AI_FALLBACK_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai
+# AI_FALLBACK_MODEL=gemini-2.5-flash
+# Optional encryption for per-user model keys and MCP bearer tokens in Slack App Home
+# Generate separately with: openssl rand -base64 32
+# SLACK_USER_SECRETS_ENCRYPTION_KEY=
+# EXA_API_KEY=
+# E2B_API_KEY=
+# Optional GitHub file edits; use a fine-grained token restricted to approved repos with Contents read/write permission
+# GITHUB_TOKEN=
+# GITHUB_ALLOWED_OWNERS=your-github-user-or-org
+# GITHUB_ALLOWED_SLACK_USERS=U0123456789
 
 # Slack Bot Integration & Auto-Invite
 SLACK_BOT_TOKEN=xoxb-your-bot-token
@@ -135,17 +151,47 @@ caddy reload
 
 ---
 
-### 8. Slack Bot Permissions for Auto-Invite to #hacki
+### 8. Slack Bot Permissions and App Home
 
-To enable Hacki to automatically invite members to the `#hacki` channel when they log in:
+To enable Hacki's interaction-triggered `#hacki` invites, thread tools, channel actions, and App Home:
 
 1. Go to [api.slack.com/apps](https://api.slack.com/apps) and click your app.
 2. Under **OAuth & Permissions** &rarr; **Scopes** &rarr; **Bot Token Scopes**, make sure to add:
+   - `app_mentions:read` (Allows explicit mentions)
+   - `im:read` & `im:history` (Allows DMs and DM thread context)
+   - `im:write` (Allows reminder delivery in DMs)
    - `channels:write.invites` (Allows bot to invite users to public channels)
    - `channels:read` & `channels:join` (Allows bot to find and join the channel)
-   - `chat:write` (Allows bot to post a welcome message)
-3. Click **Reinstall to Workspace** at the top of the OAuth page so the updated permissions take effect.
-4. Ensure the bot is added to your `#hacki` channel (`/invite @Hacki` in the channel).
+   - `channels:manage` (Allows Hacki to leave a public channel after a bot invites it and create public channels after confirmation)
+   - `users:read` (Allows Hacki to check whether the inviter is a bot)
+   - `channels:history` (Allows Hacki to continue threads and search recent posts in public channels it has joined)
+   - `groups:read` & `groups:history` (Allows Hacki to read private channel details and thread context where it is a member)
+   - `groups:write` & `groups:write.invites` (Allows confirmed private channel creation and inviting the requesting user)
+   - `files:write` (Allows Hacki to upload rendered Mermaid diagrams)
+   - `reactions:write` (Allows Hacki to add requested reactions)
+   - `canvases:write` (Allows Hacki to create or append to a channel canvas after confirmation)
+   - `chat:write` (Allows bot to reply and deliver reminders)
+3. Under **App Home**, enable the Home tab and allow users to message Hacki.
+4. Under **Event Subscriptions** &rarr; **Subscribe to bot events**, add `app_mention`, `message.channels`, `message.im`, `member_joined_channel`, and `app_home_opened`.
+5. Enable **Interactivity & Shortcuts** so the post, poll, channel, canvas, file upload, public site preview, email, and data erasure confirmation buttons work with Socket Mode.
+6. Click **Reinstall to Workspace** at the top of the OAuth page so the updated permissions take effect.
+7. Ensure the bot is added to your `#hacki` channel (`/invite @Hacki` in the channel).
+
+Private-channel features require `groups:read` and `groups:history`; confirmed private channel creation also requires `groups:write` and `groups:write.invites`. Public channel creation uses `channels:manage`.
+
+Channel canvases require Slack's Canvas feature to be available for the workspace. Slack allows only one canvas tab per channel on the free plan; Hacki appends confirmed new content to the channel's existing canvas when one is already present.
+
+`EXA_API_KEY` enables live general web search and the `fetch: https://...` Slack command. `BROWSER_CDP_URL` optionally connects Playwright to a remotely hosted headful Chromium browser over CDP so Hacki can read JavaScript-rendered public pages. Without Exa or a browser endpoint, Hacki still answers with its configured Hack Club sources, but cannot fetch arbitrary public pages. `E2B_API_KEY` enables isolated code execution, shell commands, file operations, confirmed uploads (up to 10 MB), and confirmed temporary public static previews from persistent thread sandboxes. `files:write` is required for Slack uploads. E2B previews stay online only while their sandbox is running (currently up to one hour of inactivity); anyone with the preview URL can access its served directory. SMTP credentials enable confirmed email sending. These integrations are optional and configured on the server in `.env`.
+
+Optional GitHub edits are limited to existing text files in public repositories. They require `GITHUB_TOKEN` as a fine-grained token limited to the intended repositories with Contents read/write permission, plus comma-separated `GITHUB_ALLOWED_OWNERS` and `GITHUB_ALLOWED_SLACK_USERS`. Both allowlists apply together. The requesting Slack user reviews the full replacement and commit message, then confirms before Hacki writes; a changed file invalidates the preview. Keep the GitHub token server-side and restrict its repository access. Public GitHub lookups work without this token.
+
+Slack reply streaming uses `chat:write` with Socket Mode and starts each assistant answer as a thread reply. No additional Slack scopes are required. If a model endpoint rejects streaming, Hacki retries that step without streaming and posts the completed answer normally.
+
+The browser service receives requested page URLs and returns rendered page text. Hacki creates a fresh browser context per request and blocks non-HTTPS and private-network requests. Browser rendering requires no Slack scopes.
+
+To enable per-user model keys and remote MCP servers from App Home, set `SLACK_USER_SECRETS_ENCRYPTION_KEY` to a base64-encoded 32-byte secret (`openssl rand -base64 32`). Back it up and keep it unchanged: rotating or losing it makes saved provider keys and MCP bearer tokens undecryptable. `SLACK_MODEL_KEYS_ENCRYPTION_KEY` remains a legacy alias. Users choose among the supported model providers; their Slack model calls use only that provider and do not fall back to Hacki's shared AI key. Choose a model that supports OpenAI-compatible chat completions and tool calls. Other integrations such as Exa can still receive their relevant queries. MCP endpoints must be publicly reachable HTTPS Streamable HTTP servers and resolve to public IP addresses; OAuth and stdio servers are not supported. Tool calls send the user's prompt data and arguments to the configured MCP server. No extra Slack scopes are needed beyond the App Home and interactivity setup above.
+
+Slack sends this event only for channels Hacki is already in. Hacki checks the event's inviter and leaves when that inviter is a bot/app. The bot join event itself is ignored.
 
 ---
 

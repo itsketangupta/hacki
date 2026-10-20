@@ -6,7 +6,7 @@ The web client uses **React** and **Vite**. An **Express** server provides the a
 
 ## Features
 
-- Responsive React chat interface with Markdown, source citations, and streaming-style replies.
+- Responsive React chat interface with Markdown, source citations, and streaming-style replies; Slack replies also stream into their threads as the model responds.
 - System, light, and dark themes.
 - Hack Club OAuth sign-in and account-scoped SQLite chat history synced across devices.
 - Retrieval from the Hack Club team directory, live YSWS catalog, Slack bulletins, and cached official Hack Club pages and repositories.
@@ -16,7 +16,24 @@ The web client uses **React** and **Vite**. An **Express** server provides the a
 - A searchable Opportunity Finder for recent Slack roles, program launches, events, bounties, and other calls for participation, with original post links and dates.
 - Source snapshot dates for time-sensitive answers.
 - Optional Slack bot replies to direct messages and explicit mentions.
-- Slack replies include source links, use available thread context, and keep short-lived context for follow-up questions in a DM.
+- The AI can select read-only Hack Club, current-channel, web, and public GitHub lookup tools during a reply. In Slack, it can also run requested code or shell/file operations in the user's persistent E2B thread sandbox, prepare sandbox file uploads and requested channel creations, posts, polls, and canvases for confirmation, and prepare requested emails for confirmation. Explicit reaction requests act on the current message.
+- Slack replies include source links, put mentions and DMs in message-rooted threads, continue in threads Hacki has joined, and keep short-lived context per DM thread.
+- In a channel mention or active thread, `search here: words` searches the latest 200 channel posts the bot can access and returns up to five matching links.
+- Optional Exa live web retrieval for general questions, with source URLs included in answers.
+- Optional Exa page fetching in Slack with `fetch: https://...`, for reading a specific public web page beyond Hack Club sources.
+- Optional real headful Chromium browsing over a remote Chrome DevTools Protocol endpoint; rendered page text is available to the AI as untrusted source material.
+- Optional persistent per-thread Python, JavaScript, TypeScript, shell, and file operations in an isolated E2B sandbox, through `run: <code>` or natural-language requests to execute code or work with files.
+- Upload files produced in the current Slack thread's E2B sandbox after showing the filename and asking the user to confirm; files are limited to 10 MB.
+- Start a temporary public static preview for a project directory in the current thread's E2B sandbox after confirmation. Anyone with the URL can view it while the sandbox remains active.
+- Public GitHub repository, issue, and file lookups; optionally prepare a confirmed edit in operator-approved repositories.
+- Channel post requests and polls go through an interactive confirmation; `react: emoji` adds a reaction to the current thread’s parent message.
+- Optional SMTP email sending from DMs, with recipient, subject, and body shown for confirmation before sending.
+- Persistent Slack reminders through `remind me in 20m to ...` or `remind me every 1h to ...`.
+- Private per-user Slack memories through `remember: ...`, `what do you remember?`, and `forget memories` in DMs.
+- Per-user custom DM instructions through `instructions: ...` and `clear instructions`.
+- Optional per-user model keys from App Home for OpenAI, OpenRouter, Groq, Together AI, DeepSeek, Google Gemini, or Mistral; keys are encrypted in SQLite and used without the shared-key fallback.
+- Per-user remote Streamable HTTP MCP servers configured in App Home; bearer tokens are encrypted, tools are loaded for that Slack user's requests, and data erasure removes the server configuration.
+- Optional OpenAI-compatible backup model when the primary AI request fails.
 - Slack collection from configured announcement, bulletin, YSWS, opportunity, and bounty channel families; bulletin and opportunity channels are processed first, and sync pauses cleanly on rate limits.
 - A linked Slack user is invited to `#hacki` only after sending a website chat, DMing Hacki, or mentioning Hacki. Signing in alone does not invite them; the bot does not send a welcome DM or channel post.
 
@@ -37,6 +54,8 @@ These are Hacki's ten Hack Club-specific capabilities. They depend on the bot's 
 
 This is a Hack Club-focused assistant, not a claim that Hacki is better at every general task. It can only search Slack channels that the bot can access, and its source snapshot may lag behind a new post.
 
+For questions beyond Hack Club, Hacki can use optional live web search and public page fetching, look up public GitHub repositories, and run user-provided code in an isolated sandbox. These general tools complement the Hack Club sources; they do not grant access to private Slack content or arbitrary GitHub accounts.
+
 ## Architecture
 
 The React/Vite client in `client/` is built into `dist/` and served by Express. The same server provides API routes, Hack Club OAuth, SQLite persistence, data collectors, and the optional Slack integration.
@@ -45,7 +64,7 @@ React does not hide API endpoint URLs. Access control belongs in the server, and
 
 ## Requirements
 
-- Node.js 22.12 or newer
+- Node.js 22.19 or newer (required by the E2B SDK)
 - npm
 - Credentials for whichever optional integrations you enable (Hack Club AI Gateway, Slack, OAuth)
 
@@ -69,6 +88,13 @@ Run `npm start` to build the client and start Express. On Hack Club Nest, instal
 | `AI_API_KEY` | Server-side Hack Club AI Gateway key |
 | `AI_BASE_URL` | AI Gateway base URL |
 | `AI_MODEL` | Model identifier sent to the gateway |
+| `AI_FALLBACK_API_KEY` / `AI_FALLBACK_BASE_URL` / `AI_FALLBACK_MODEL` | Optional OpenAI-compatible backup model used when the primary request fails |
+| `EXA_API_KEY` | Optional Exa key for live web search and public page fetching |
+| `BROWSER_CDP_URL` | Optional remote headful Chromium CDP endpoint for JavaScript-rendered pages |
+| `GITHUB_TOKEN`, `GITHUB_ALLOWED_OWNERS`, `GITHUB_ALLOWED_SLACK_USERS` | Optional GitHub file edits; both allowlists and a fine-grained Contents read/write token are required; edits require Slack confirmation |
+| `SLACK_USER_SECRETS_ENCRYPTION_KEY` | Optional base64 32-byte key used to encrypt per-user model API keys and MCP bearer tokens stored from Slack App Home |
+| `E2B_API_KEY` | Optional E2B API key for isolated per-thread code execution |
+| `SMTP_URL` / `MAIL_FROM` | Optional SMTP sender; email requests from DMs require a confirmation click |
 | `HACKCLUB_CLIENT_ID` / `HACKCLUB_CLIENT_SECRET` | Hack Club OAuth credentials |
 | `HACKCLUB_REDIRECT_URI` | Registered OAuth callback URL |
 | `PUBLIC_BASE_URL` | Public site URL in production |
@@ -77,6 +103,39 @@ Run `npm start` to build the client and start Express. On Hack Club Nest, instal
 | `ENABLE_SLACK_SYNC` | Enable or disable announcement collection |
 | `SLACK_SYNC_INTERVAL_MS` | Delay between Slack sync batches |
 | `SLACK_HACKI_CHANNEL` | Target channel name or ID for interaction-triggered invites |
+
+Headful browser access is optional. Set `BROWSER_CDP_URL` to a trusted Chromium DevTools Protocol WebSocket endpoint from a browser hosting service or your own secured browser host. Hacki opens a fresh isolated context per request, allows public HTTPS pages only, and sends requested URLs and page content through that service. Without it, Exa can still search and fetch public pages when `EXA_API_KEY` is configured.
+
+Per-user model keys and MCP servers are optional App Home features enabled by `SLACK_USER_SECRETS_ENCRYPTION_KEY`. Generate it with `openssl rand -base64 32`, keep it stable across restarts, and back it up separately from the SQLite database. `SLACK_MODEL_KEYS_ENCRYPTION_KEY` remains a legacy alias. Users choose a model provider, model ID, and key in App Home. The selected provider must support OpenAI-compatible chat completions and tool calls. When configured, that user's Slack model calls go only to their selected provider; Hacki does not fall back to its shared model key. Other integrations such as Exa can still receive their relevant queries. The model key and MCP bearer token are visible in the private App Home modal while entered.
+
+Users can add up to five remote MCP Streamable HTTP endpoints from App Home, each with an optional bearer token. Hacki checks that an endpoint is HTTPS and resolves to public IP addresses, tests it by listing tools, then refreshes its tool list for that user's Slack requests. Tool calls send the user's request and arguments to that MCP server; use only servers you trust. OAuth-based MCP setup and stdio-only MCP servers are not supported. No additional Slack scopes are required.
+
+Optional GitHub edits are limited to existing text files in public repositories. They require a fine-grained `GITHUB_TOKEN` restricted to the intended repositories with Contents read/write permission, plus comma-separated `GITHUB_ALLOWED_OWNERS` and `GITHUB_ALLOWED_SLACK_USERS` allowlists. The two allowlists work together: only listed Slack accounts can edit repositories belonging to listed owners. Hacki previews the complete replacement and commit message, then commits only after the requesting Slack user confirms; it refuses if the file changed after preview. Keep this token server-side and narrow its repository access. GitHub lookup and file reading remain public and do not need a token.
+
+Slack reminder and memory examples:
+
+- `remind me in 20m to check my project`
+- `remind me every 1h to take a break`
+- In a DM: `list reminders` or `cancel reminder 12`
+- In a DM: `remember: I prefer short answers`
+- In a DM: `what do you remember?` or `forget memories`
+- In a DM: `instructions: Keep answers concise and use Python examples`
+- In a DM: `erase my data` to remove Hacki memories, instructions, reminders, and saved E2B sessions for that Slack user.
+- In a mention or DM: `run: print(1 + 1)`
+- Ask Hacki to upload a file from the current thread sandbox by path (for example, `./index.html`); it previews the filename and waits for confirmation.
+- Ask Hacki to preview or host a project directory from the current thread sandbox; it asks for confirmation before opening a temporary public URL.
+- In a mention or DM: `github: facebook/react` or `github issues: facebook/react`
+- Ask Hacki to inspect a file in a public GitHub repo, such as `facebook/react` at `packages/react/src/React.js`; it returns up to 12,000 characters with a source link.
+- In an approved repository, ask Hacki to replace a file; it displays the complete file proposal and commit message for confirmation before writing.
+- In a mention or DM: `fetch: https://example.com/article` to fetch readable text from a public HTTPS page (requires Exa).
+- In a mention or DM: `diagram: flowchart TD; A-->B`
+- In a channel mention or an active thread: `post: ...`, `poll: question | option 1 | option 2`, or `react: thumbsup`
+- Ask Hacki to create a markdown canvas in the current channel; it previews the content for confirmation before creating a channel canvas or appending to the existing one.
+- Ask Hacki to create a public or private Slack channel; it shows the normalized name and visibility for confirmation. For private channels, Hacki invites the requesting user.
+- In a channel mention or an active thread: `search here: reviewer deadline` searches recent posts in that channel.
+- In a DM: `email: person@example.com | Subject | Message body`
+
+Reminders are stored in SQLite and continue after a restart. Recurring reminders keep their original channel or thread. Personal memories are only added to DM prompts and can be erased with `forget memories`.
 
 Never commit `.env` or put credentials in client code. `.env` is excluded by `.gitignore`.
 

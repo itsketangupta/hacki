@@ -88,6 +88,15 @@ function migrate(db) {
     );
     CREATE INDEX IF NOT EXISTS idx_chat_messages_session ON chat_messages(chat_session_id);
 
+    -- Per-account feedback on assistant answers.
+    CREATE TABLE IF NOT EXISTS answer_feedback (
+      message_id INTEGER NOT NULL REFERENCES chat_messages(id) ON DELETE CASCADE,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      rating INTEGER NOT NULL CHECK(rating IN (-1, 1)),
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      PRIMARY KEY (message_id, user_id)
+    );
+
     -- Per-user key/value settings store
     CREATE TABLE IF NOT EXISTS user_settings (
       user_id   TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -96,7 +105,201 @@ function migrate(db) {
       updated_at TEXT NOT NULL DEFAULT (datetime('now')),
       PRIMARY KEY (user_id, key)
     );
+
+    -- Explicit per-Slack-user memories and durable Slack reminders.
+    CREATE TABLE IF NOT EXISTS slack_memories (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      slack_user_id TEXT NOT NULL,
+      memory TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_slack_memories_user ON slack_memories(slack_user_id);
+
+    CREATE TABLE IF NOT EXISTS slack_instructions (
+      slack_user_id TEXT PRIMARY KEY,
+      instructions TEXT NOT NULL,
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS slack_model_overrides (
+      slack_user_id TEXT PRIMARY KEY,
+      provider TEXT NOT NULL,
+      model TEXT NOT NULL,
+      encrypted_api_key TEXT NOT NULL,
+      iv TEXT NOT NULL,
+      auth_tag TEXT NOT NULL,
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS slack_mcp_servers (
+      server_id TEXT PRIMARY KEY,
+      slack_user_id TEXT NOT NULL,
+      name TEXT NOT NULL,
+      endpoint TEXT NOT NULL,
+      encrypted_token TEXT,
+      iv TEXT,
+      auth_tag TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(slack_user_id, name)
+    );
+
+    CREATE TABLE IF NOT EXISTS slack_reminders (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      slack_user_id TEXT NOT NULL,
+      channel_id TEXT NOT NULL,
+      thread_ts TEXT,
+      reminder_text TEXT NOT NULL,
+      due_at INTEGER NOT NULL,
+      interval_ms INTEGER,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_slack_reminders_due ON slack_reminders(due_at);
+
+    CREATE TABLE IF NOT EXISTS slack_sandboxes (
+      thread_key TEXT PRIMARY KEY,
+      slack_user_id TEXT NOT NULL DEFAULT '',
+      sandbox_id TEXT NOT NULL,
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
   `);
+
+  const sandboxColumns = db.prepare('PRAGMA table_info(slack_sandboxes)').all();
+  if (!sandboxColumns.some(column => column.name === 'slack_user_id')) {
+    db.exec("ALTER TABLE slack_sandboxes ADD COLUMN slack_user_id TEXT NOT NULL DEFAULT ''");
+  }
+}
+
+export function getSlackSandbox(threadKey) {
+  return getDb().prepare('SELECT sandbox_id FROM slack_sandboxes WHERE thread_key = ?').get(threadKey)?.sandbox_id || null;
+}
+
+export function saveSlackSandbox(threadKey, sandboxId, slackUserId) {
+  getDb().prepare(`INSERT INTO slack_sandboxes (thread_key, slack_user_id, sandbox_id, updated_at)
+    VALUES (?, ?, ?, datetime('now')) ON CONFLICT(thread_key) DO UPDATE SET
+    slack_user_id = excluded.slack_user_id, sandbox_id = excluded.sandbox_id, updated_at = excluded.updated_at`)
+    .run(threadKey, slackUserId || '', sandboxId);
+}
+
+export function getSlackSandboxesForUser(slackUserId) {
+  return getDb().prepare('SELECT sandbox_id FROM slack_sandboxes WHERE slack_user_id = ?').all(slackUserId).map(row => row.sandbox_id);
+}
+
+export function deleteSlackSandboxesForUser(slackUserId) {
+  return getDb().prepare('DELETE FROM slack_sandboxes WHERE slack_user_id = ?').run(slackUserId).changes;
+}
+
+export function eraseSlackUserData(slackUserId) {
+  const db = getDb();
+  const erase = db.transaction(id => {
+    db.prepare('DELETE FROM slack_memories WHERE slack_user_id = ?').run(id);
+    db.prepare('DELETE FROM slack_instructions WHERE slack_user_id = ?').run(id);
+    db.prepare('DELETE FROM slack_model_overrides WHERE slack_user_id = ?').run(id);
+    db.prepare('DELETE FROM slack_mcp_servers WHERE slack_user_id = ?').run(id);
+    db.prepare('DELETE FROM slack_reminders WHERE slack_user_id = ?').run(id);
+    db.prepare('DELETE FROM slack_sandboxes WHERE slack_user_id = ?').run(id);
+  });
+  erase(slackUserId);
+}
+
+export function addSlackMemory(slackUserId, memory) {
+  const value = String(memory || '').trim().slice(0, 1000);
+  if (!slackUserId || !value) return false;
+  const existing = getDb().prepare(`SELECT id FROM slack_memories
+    WHERE slack_user_id = ? AND lower(memory) = lower(?)`).get(slackUserId, value);
+  if (existing) return false;
+  getDb().prepare('INSERT INTO slack_memories (slack_user_id, memory) VALUES (?, ?)').run(slackUserId, value);
+  getDb().prepare(`DELETE FROM slack_memories WHERE slack_user_id = ? AND id NOT IN
+    (SELECT id FROM slack_memories WHERE slack_user_id = ? ORDER BY id DESC LIMIT 30)`)
+    .run(slackUserId, slackUserId);
+  return true;
+}
+
+export function getSlackMemories(slackUserId) {
+  return getDb().prepare(`SELECT id, memory FROM slack_memories
+    WHERE slack_user_id = ? ORDER BY id DESC LIMIT 30`).all(slackUserId).reverse();
+}
+
+export function deleteSlackMemories(slackUserId) {
+  return getDb().prepare('DELETE FROM slack_memories WHERE slack_user_id = ?').run(slackUserId).changes;
+}
+
+export function setSlackInstructions(slackUserId, instructions) {
+  const value = String(instructions || '').trim().slice(0, 1500);
+  if (!value) return false;
+  getDb().prepare(`INSERT INTO slack_instructions (slack_user_id, instructions, updated_at)
+    VALUES (?, ?, datetime('now')) ON CONFLICT(slack_user_id) DO UPDATE SET
+    instructions = excluded.instructions, updated_at = excluded.updated_at`).run(slackUserId, value);
+  return true;
+}
+
+export function getSlackInstructions(slackUserId) {
+  return getDb().prepare('SELECT instructions FROM slack_instructions WHERE slack_user_id = ?').get(slackUserId)?.instructions || '';
+}
+
+export function deleteSlackInstructions(slackUserId) {
+  return getDb().prepare('DELETE FROM slack_instructions WHERE slack_user_id = ?').run(slackUserId).changes;
+}
+
+export function saveSlackModelOverride(slackUserId, value) {
+  getDb().prepare(`INSERT INTO slack_model_overrides
+    (slack_user_id, provider, model, encrypted_api_key, iv, auth_tag, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, datetime('now')) ON CONFLICT(slack_user_id) DO UPDATE SET
+    provider = excluded.provider, model = excluded.model, encrypted_api_key = excluded.encrypted_api_key,
+    iv = excluded.iv, auth_tag = excluded.auth_tag, updated_at = excluded.updated_at`)
+    .run(slackUserId, value.provider, value.model, value.encryptedApiKey, value.iv, value.authTag);
+}
+
+export function getSlackModelOverride(slackUserId) {
+  return getDb().prepare(`SELECT provider, model, encrypted_api_key AS encryptedApiKey, iv, auth_tag AS authTag
+    FROM slack_model_overrides WHERE slack_user_id = ?`).get(slackUserId) || null;
+}
+
+export function deleteSlackModelOverride(slackUserId) {
+  return getDb().prepare('DELETE FROM slack_model_overrides WHERE slack_user_id = ?').run(slackUserId).changes;
+}
+
+export function saveSlackMcpServer(value) {
+  getDb().prepare(`INSERT INTO slack_mcp_servers
+    (server_id, slack_user_id, name, endpoint, encrypted_token, iv, auth_tag)
+    VALUES (?, ?, ?, ?, ?, ?, ?)`)
+    .run(value.serverId, value.slackUserId, value.name, value.endpoint, value.encryptedToken || null, value.iv || null, value.authTag || null);
+}
+
+export function getSlackMcpServers(slackUserId) {
+  return getDb().prepare(`SELECT server_id AS serverId, slack_user_id AS slackUserId, name, endpoint,
+    encrypted_token AS encryptedToken, iv, auth_tag AS authTag
+    FROM slack_mcp_servers WHERE slack_user_id = ? ORDER BY created_at, name`).all(slackUserId);
+}
+
+export function deleteSlackMcpServer(slackUserId, serverId) {
+  return getDb().prepare('DELETE FROM slack_mcp_servers WHERE slack_user_id = ? AND server_id = ?').run(slackUserId, serverId).changes;
+}
+
+export function addSlackReminder({ slackUserId, channelId, threadTs, reminderText, dueAt, intervalMs = null }) {
+  return getDb().prepare(`INSERT INTO slack_reminders
+    (slack_user_id, channel_id, thread_ts, reminder_text, due_at, interval_ms)
+    VALUES (?, ?, ?, ?, ?, ?)`)
+    .run(slackUserId, channelId, threadTs || null, String(reminderText).slice(0, 1000), dueAt, intervalMs).lastInsertRowid;
+}
+
+export function getDueSlackReminders(now = Date.now(), limit = 20) {
+  return getDb().prepare(`SELECT * FROM slack_reminders WHERE due_at <= ? ORDER BY due_at LIMIT ?`).all(now, limit);
+}
+
+export function getSlackRemindersForUser(slackUserId, limit = 20) {
+  return getDb().prepare(`SELECT id, reminder_text, due_at, interval_ms FROM slack_reminders
+    WHERE slack_user_id = ? ORDER BY due_at LIMIT ?`).all(slackUserId, limit);
+}
+
+export function deleteSlackReminder(slackUserId, id) {
+  return getDb().prepare('DELETE FROM slack_reminders WHERE slack_user_id = ? AND id = ?').run(slackUserId, id).changes;
+}
+
+export function completeSlackReminder(id, intervalMs = null, nextDueAt = null) {
+  if (intervalMs && nextDueAt) {
+    return getDb().prepare('UPDATE slack_reminders SET due_at = ? WHERE id = ?').run(nextDueAt, id).changes;
+  }
+  return getDb().prepare('DELETE FROM slack_reminders WHERE id = ?').run(id).changes;
 }
 
 // ---------------------------------------------------------------------------
@@ -241,7 +444,7 @@ export function deleteChatSession(sessionKey, userId) {
 
 export function appendMessage(chatSessionId, role, content, sources = null) {
   const db = getDb();
-  db.prepare(`
+  const inserted = db.prepare(`
     INSERT INTO chat_messages (chat_session_id, role, content, sources)
     VALUES (?, ?, ?, ?)
   `).run(chatSessionId, role, content, sources ? JSON.stringify(sources) : null);
@@ -250,21 +453,44 @@ export function appendMessage(chatSessionId, role, content, sources = null) {
   db.prepare(`
     UPDATE chat_sessions SET updated_at = datetime('now') WHERE id = ?
   `).run(chatSessionId);
+  return Number(inserted.lastInsertRowid);
 }
 
-export function getMessages(chatSessionId, limit = 200) {
+export function setAnswerFeedback(messageId, userId, rating) {
+  getDb().prepare(`
+    INSERT INTO answer_feedback (message_id, user_id, rating) VALUES (?, ?, ?)
+    ON CONFLICT(message_id, user_id) DO UPDATE SET rating = excluded.rating, created_at = datetime('now')
+  `).run(messageId, userId, rating);
+}
+
+export function getAnswerFeedback(messageId, userId) {
+  return getDb().prepare('SELECT rating FROM answer_feedback WHERE message_id = ? AND user_id = ?')
+    .get(messageId, userId)?.rating ?? null;
+}
+
+export function userOwnsAssistantMessage(messageId, userId) {
+  return Boolean(getDb().prepare(`
+    SELECT 1 FROM chat_messages m
+    JOIN chat_sessions s ON s.id = m.chat_session_id
+    WHERE m.id = ? AND m.role = 'assistant' AND s.user_id = ?
+  `).get(messageId, userId));
+}
+
+export function getMessages(chatSessionId, limit = 200, feedbackUserId = null) {
   const rows = getDb().prepare(`
-    SELECT * FROM chat_messages
-    WHERE chat_session_id = ?
-    ORDER BY created_at ASC
+    SELECT m.*, f.rating AS feedback_rating FROM chat_messages m
+    LEFT JOIN answer_feedback f ON f.message_id = m.id AND f.user_id = ?
+    WHERE m.chat_session_id = ?
+    ORDER BY m.created_at ASC
     LIMIT ?
-  `).all(chatSessionId, limit);
+  `).all(feedbackUserId, chatSessionId, limit);
 
   return rows.map(r => ({
     id: r.id,
     role: r.role,
     content: r.content,
     sources: r.sources ? JSON.parse(r.sources) : null,
+    feedback: r.feedback_rating ?? null,
     createdAt: r.created_at
   }));
 }

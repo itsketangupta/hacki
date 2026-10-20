@@ -71,6 +71,8 @@ async function importChat(chat) {
 function Message({ message }) {
   const [visibleText, setVisibleText] = useState(message.animate ? '' : message.text);
   const [finished, setFinished] = useState(!message.animate);
+  const [feedback, setFeedback] = useState(message.feedback ?? null);
+  const [feedbackBusy, setFeedbackBusy] = useState(false);
 
   useEffect(() => {
     if (!message.animate) {
@@ -106,6 +108,24 @@ function Message({ message }) {
     try { await navigator.clipboard.writeText(message.text); } catch {}
   }
 
+  async function rateAnswer(rating) {
+    if (!message.dbId || feedbackBusy) return;
+    setFeedbackBusy(true);
+    try {
+      const response = await fetch('/api/chat/feedback', {
+        method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messageId: message.dbId, rating })
+      });
+      const data = await response.json();
+      if (!response.ok || !data.ok) throw new Error(data.error || 'Could not save feedback.');
+      setFeedback(data.rating);
+    } catch (error) {
+      console.warn('[Hacki] Could not save answer feedback:', error.message);
+    } finally {
+      setFeedbackBusy(false);
+    }
+  }
+
   return <div className={`message-item ${message.role}`}>
     {message.role === 'assistant' && <img className="assistant-avatar" src="/hacki-logo.png" alt="Hacki" />}
     <div className={`message-body ${message.animate && !finished ? 'streaming' : ''}`}>
@@ -120,7 +140,7 @@ function Message({ message }) {
         </a>)}
         {dateLabels.length > 0 && <span className="data-snapshot-label" title="Dates refer to the saved source snapshots and latest successful Slack batch.">Data dates · {dateLabels.join(' · ')}</span>}
       </div>}
-      {message.role === 'assistant' && finished && <div className="msg-actions"><button className="action-btn" title="Copy response" onClick={copyResponse}><Icon name="copy" size={14}/><span>Copy</span></button></div>}
+      {message.role === 'assistant' && finished && <div className="msg-actions"><button className="action-btn" title="Copy response" onClick={copyResponse}><Icon name="copy" size={14}/><span>Copy</span></button>{message.dbId && <><button className={`action-btn feedback-btn ${feedback === 1 ? 'selected' : ''}`} title="Helpful answer" aria-label="Helpful answer" disabled={feedbackBusy} onClick={() => rateAnswer(1)}>👍</button><button className={`action-btn feedback-btn ${feedback === -1 ? 'selected' : ''}`} title="Not helpful" aria-label="Not helpful" disabled={feedbackBusy} onClick={() => rateAnswer(-1)}>👎</button>{feedback !== null && <span className="feedback-thanks">Thanks for the feedback</span>}</>}</div>}
     </div>
   </div>;
 }
@@ -255,7 +275,7 @@ export default function App() {
           const detail = await fetch(`/api/chat/sessions/${encodeURIComponent(session.session_key)}`, { credentials: 'include', cache: 'no-store' });
           if (!detail.ok) return null;
           const body = await detail.json();
-          return { id: session.session_key, title: session.title || 'New chat', createdAt: session.created_at, messages: (body.messages || []).map((message, i) => ({ id: `${session.session_key}-${i}`, role: message.role, text: message.content, sources: message.sources || [] })) };
+          return { id: session.session_key, title: session.title || 'New chat', createdAt: session.created_at, messages: (body.messages || []).map((message, i) => ({ id: `${session.session_key}-${i}`, dbId: message.id, feedback: message.feedback, role: message.role, text: message.content, sources: message.sources || [] })) };
         }));
         const usable = loaded.filter(Boolean);
         if (!cancelled) {
@@ -343,7 +363,7 @@ export default function App() {
       }
       const data = await response.json();
       if (!response.ok || !data.ok) throw new Error(data.error || 'Something went wrong.');
-      updateChat(chatId, chat => ({ ...chat, title, messages: [...chat.messages, { id: `${Date.now()}-assistant`, role: 'assistant', text: data.answer, sources: data.sources || [], suggestions: data.suggestedQueries || [], animate: true }] }));
+      updateChat(chatId, chat => ({ ...chat, title, messages: [...chat.messages, { id: `${Date.now()}-assistant`, dbId: data.answerMessageId, role: 'assistant', text: data.answer, sources: data.sources || [], suggestions: data.suggestedQueries || [], animate: true }] }));
     } catch (error) {
       updateChat(chatId, chat => ({ ...chat, messages: [...chat.messages, { id: `${Date.now()}-error`, role: 'assistant', text: `⚠️ ${error.message}` }] }));
     } finally {

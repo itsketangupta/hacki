@@ -929,6 +929,10 @@ textarea:focus-visible {
   margin-top: 10px;
 }
 
+.feedback-btn.selected { opacity: 1; background: var(--surface-hover, rgba(255,255,255,.1)); }
+.feedback-btn:disabled { cursor: wait; }
+.feedback-thanks { color: var(--text-muted, #89909d); font-size: 12px; align-self: center; }
+
 .action-btn {
   background: transparent;
   border: none;
