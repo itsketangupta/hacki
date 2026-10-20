@@ -13,6 +13,24 @@ export const authRouter = express.Router();
 
 const oauthStates = new Map();
 
+async function getSlackAvatar(slackId) {
+  if (!slackId || !config.slackBotToken) return null;
+
+  try {
+    const response = await fetch(`https://slack.com/api/users.info?user=${encodeURIComponent(slackId)}`, {
+      headers: { Authorization: `Bearer ${config.slackBotToken}` }
+    });
+    if (!response.ok) return null;
+
+    const result = await response.json();
+    if (!result.ok) return null;
+    return result.user?.profile?.image_192 || result.user?.profile?.image_72 || null;
+  } catch (error) {
+    console.warn('[Auth] Could not load Slack profile avatar:', error.message);
+    return null;
+  }
+}
+
 // Prune stale DB sessions once at startup
 pruneExpiredSessions();
 
@@ -120,6 +138,7 @@ authRouter.get('/callback', async (req, res) => {
     const name = [identity.first_name, identity.last_name].filter(Boolean).join(' ') || identity.name || identity.email || 'Hack Club Member';
     const email = identity.primary_email || identity.email || '';
     const slackId = identity.slack_id || null;
+    const avatar = identity.avatar || await getSlackAvatar(slackId);
 
     const user = {
       id,
@@ -127,7 +146,7 @@ authRouter.get('/callback', async (req, res) => {
       email,
       slackId,
       slackUrl: slackId ? `https://hackclub.enterprise.slack.com/team/${slackId}` : null,
-      avatar: identity.avatar || null,
+      avatar,
       lastLoginAt: new Date().toISOString(),
       slackChannelStatus: 'not_requested',
       slackChannelJoined: false
