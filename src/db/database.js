@@ -168,6 +168,7 @@ function migrate(db) {
       channel_name TEXT,
       user_id TEXT,
       message_text TEXT NOT NULL,
+      reply_text TEXT,
       occurred_at INTEGER NOT NULL,
       slack_ts TEXT NOT NULL
     );
@@ -177,6 +178,10 @@ function migrate(db) {
   const sandboxColumns = db.prepare('PRAGMA table_info(slack_sandboxes)').all();
   if (!sandboxColumns.some(column => column.name === 'slack_user_id')) {
     db.exec("ALTER TABLE slack_sandboxes ADD COLUMN slack_user_id TEXT NOT NULL DEFAULT ''");
+  }
+  const mentionColumns = db.prepare('PRAGMA table_info(slack_mentions)').all();
+  if (!mentionColumns.some(column => column.name === 'reply_text')) {
+    db.exec('ALTER TABLE slack_mentions ADD COLUMN reply_text TEXT');
   }
 }
 
@@ -192,6 +197,12 @@ export function getRecentSlackMentions(days = 7) {
   const since = Math.floor(Date.now() / 1000) - Math.max(1, Math.min(30, days)) * 86400;
   return getDb().prepare(`SELECT event_key, channel_id, channel_name, user_id, message_text, occurred_at
     FROM slack_mentions WHERE occurred_at >= ? ORDER BY occurred_at DESC LIMIT 500`).all(since);
+}
+
+export function recordSlackClarification(eventKey, replyText) {
+  if (!eventKey || !replyText) return;
+  getDb().prepare('UPDATE slack_mentions SET reply_text = ? WHERE event_key = ?')
+    .run(String(replyText).slice(0, 4000), eventKey);
 }
 
 export function getSlackSandbox(threadKey) {

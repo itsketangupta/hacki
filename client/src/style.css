@@ -1737,6 +1737,9 @@ body { font-family: Inter, ui-rounded, system-ui, sans-serif; }
 .admin-mention-meta a:hover { text-decoration: underline; }
 .admin-mention-meta time { text-align: right; }
 .admin-mention-text { margin: 13px 0 10px; color: var(--text-primary); font-size: 14px; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; }
+.admin-mention-reply { margin: 0 0 12px; padding: 11px 12px; border-left: 2px solid var(--primary-hc); border-radius: 0 8px 8px 0; background: var(--bg-input); }
+.admin-mention-reply span { color: var(--primary-hc); font-size: 10px; font-weight: 750; letter-spacing: .04em; text-transform: uppercase; }
+.admin-mention-reply p { margin: 6px 0 0; color: var(--text-secondary); font-size: 13px; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; }
 .admin-mention-author { color: var(--text-muted); font-size: 11px; }
 .opportunity-state { padding: 24px 12px; color: var(--text-secondary); font-size: 13px; text-align: center; }
 .opportunity-freshness { margin: 18px 0 0; }

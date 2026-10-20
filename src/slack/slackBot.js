@@ -21,7 +21,7 @@ import {
   addSlackReminder, getDueSlackReminders, completeSlackReminder,
   getSlackRemindersForUser, deleteSlackReminder, eraseSlackUserData,
   setSlackInstructions, getSlackInstructions, deleteSlackInstructions,
-  recordSlackMention
+  recordSlackMention, recordSlackClarification
 } from '../db/database.js';
 
 let botApp = null;
@@ -38,6 +38,10 @@ const pendingEmailSends = new Map();
 const emailSendHistory = new Map();
 const channelContextCache = new Map();
 const CHANNEL_CONTEXT_TTL_MS = 10 * 60 * 1000;
+
+function isClarificationReply(text) {
+  return /(?:could|can|would) you (?:please )?(?:clarify|specify|share|tell me)|(?:what|which) (?:channel|person|project|thing|part|information) (?:are|do|did) you|what do you mean|more specific|a bit more context|more details/i.test(String(text || ''));
+}
 
 const botLogger = {
   debug: () => {},
@@ -1189,6 +1193,7 @@ export async function initSlackBot() {
     botApp.event('app_mention', async ({ event, say, client, body }) => {
       if (event.bot_id || event.subtype === 'bot_message') return;
       console.log(`[SlackBot] Received mention in #${event.channel} from ${event.user}`);
+      const mentionEventKey = body?.event_id || `${event.channel}:${event.ts}:${event.user || ''}`;
       let channelName = null;
       try {
         const channelInfo = await client.conversations.info({ channel: event.channel });
@@ -1197,7 +1202,7 @@ export async function initSlackBot() {
         console.warn(`[SlackBot] Could not resolve mention channel ${event.channel}: ${err.data?.error || err.message}`);
       }
       recordSlackMention({
-        eventKey: body?.event_id || `${event.channel}:${event.ts}:${event.user || ''}`,
+        eventKey: mentionEventKey,
         channelId: event.channel,
         channelName,
         userId: event.user,
@@ -1311,6 +1316,10 @@ export async function initSlackBot() {
             userId: event.user, channelId: event.channel, threadTs: event.thread_ts || event.ts, ...request, say: replyInThread
           })
         });
+
+        if (isClarificationReply(response.answer)) {
+          recordSlackClarification(mentionEventKey, response.answer);
+        }
 
         if (!response.streamed) {
           await say({

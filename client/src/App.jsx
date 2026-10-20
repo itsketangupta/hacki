@@ -59,10 +59,11 @@ function AdminDashboard() {
   }, [refreshKey]);
 
   return <section className="admin-dashboard">
-    <div className="admin-heading"><div><span className="empty-kicker"><span className="empty-kicker-dot"/> ADMIN</span><h1>Hacki mentions</h1><p>Slack mentions received in the last 7 days.</p></div><button className="admin-refresh-btn" onClick={() => { setLoading(true); setError(''); setRefreshKey(value => value + 1); }}>Refresh</button></div>
+    <div className="admin-heading"><div><span className="empty-kicker"><span className="empty-kicker-dot"/> ADMIN</span><h1>Hacki mentions</h1><p>Slack mentions from the last 7 days, with Hacki’s clarification replies when it asked for more context.</p></div><button className="admin-refresh-btn" onClick={() => { setLoading(true); setError(''); setRefreshKey(value => value + 1); }}>Refresh</button></div>
     {loading ? <div className="admin-empty">Loading mentions…</div> : error ? <div className="admin-empty admin-error">{error}</div> : mentions.length === 0 ? <div className="admin-empty">No mentions recorded in the last 7 days yet. New mentions will appear here.</div> : <div className="admin-mention-list">{mentions.map(mention => <article className="admin-mention-card" key={mention.event_key}>
       <div className="admin-mention-meta"><a href={mention.slackUrl} target="_blank" rel="noopener noreferrer">#{mention.channel_name || mention.channel_id}</a><time dateTime={new Date(mention.occurred_at * 1000).toISOString()}>{new Date(mention.occurred_at * 1000).toLocaleString()}</time></div>
       <p className="admin-mention-text">{mention.message_text}</p>
+      {mention.reply_text && <div className="admin-mention-reply"><span>Hacki asked for clarification</span><p>{mention.reply_text}</p></div>}
       <div className="admin-mention-author">Mentioned by {mention.user_id || 'unknown user'}</div>
     </article>)}</div>}
   </section>;
