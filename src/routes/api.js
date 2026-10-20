@@ -418,6 +418,9 @@ apiRouter.get('/ysws', async (req, res) => {
 // Hiring & reviewer opportunities
 // ---------------------------------------------------------------------------
 apiRouter.get('/opportunities', async (req, res) => {
+  if (!getSessionUser(req)) {
+    return res.status(401).json({ ok: false, error: 'Please verify your Hack Club account by signing in to view Slack opportunities.' });
+  }
   try {
     const query = String(req.query.q || '').trim().slice(0, 160);
     const type = ['all', 'roles', 'programs', 'events'].includes(req.query.type) ? req.query.type : 'all';

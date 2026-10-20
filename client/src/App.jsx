@@ -250,7 +250,7 @@ function AuthModal() {
   </div>;
 }
 
-function OpportunityFinder() {
+function OpportunityFinder({ user }) {
   const [query, setQuery] = useState('');
   const [type, setType] = useState('all');
   const [items, setItems] = useState([]);
@@ -276,7 +276,13 @@ function OpportunityFinder() {
     }
   }, [query, type]);
 
-  useEffect(() => { search('', 'all'); }, []);
+  useEffect(() => { if (user) search('', 'all'); }, [user]);
+
+  if (!user) return <section className="opportunity-finder" aria-labelledby="opportunity-title">
+    <div className="opportunity-heading"><div><span className="opportunity-eyebrow">HACK CLUB SIGN-IN REQUIRED</span><h1 id="opportunity-title">Verify to view opportunities</h1>
+      <p>Sign in with your Hack Club account to view Slack opportunities. If you need help with verification, ask freely in Hack Club Slack’s #help channel.</p>
+      <a className="opportunity-search-button" href="/auth/login">Sign in with Hack Club</a></div></div>
+  </section>;
 
   const filters = [['all', 'All'], ['roles', 'Roles'], ['programs', 'Programs & YSWS'], ['events', 'Events']];
   return <section className="opportunity-finder" aria-labelledby="opportunity-title">
@@ -539,7 +545,7 @@ export default function App() {
           </div>
         </header>
 
-        {adminOpen ? <div className="conversation-container opportunity-container"><AdminDashboard/></div> : opportunitiesOpen ? <div className="conversation-container opportunity-container"><OpportunityFinder/></div> : <div className="conversation-container" ref={conversationRef}>
+        {adminOpen ? <div className="conversation-container opportunity-container"><AdminDashboard/></div> : opportunitiesOpen ? <div className="conversation-container opportunity-container"><OpportunityFinder user={user}/></div> : <div className="conversation-container" ref={conversationRef}>
           {onFreshChat && <div className="empty-state">
             <div className="empty-kicker"><span className="empty-kicker-dot"/> A LITTLE HELP FOR YOUR NEXT BIG BUILD</div>
             <div className="empty-hero-row"><div className="empty-logo-wrap"><img src="/hacki-logo.png" alt="Hacki" className="empty-hacki-logo"/></div><span className="empty-doodle" aria-hidden="true">✳</span></div>
