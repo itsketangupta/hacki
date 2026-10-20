@@ -12,8 +12,11 @@ let historyRetryAt = 0;
 const CHANNELS_CACHE_FILE = path.join(config.dataDir, 'slack_channels_cache.json');
 const ANNOUNCEMENTS_CHECKED_FILE = path.join(config.dataDir, 'announcements.checked-at');
 const ANNOUNCEMENTS_CACHE_LIMIT = 10000;
-const CHANNELS_PER_SYNC = 40;
-const HISTORY_REQUEST_DELAY_MS = 1300;
+// Keep history reads small and spaced out. Slack can rate-limit bursts across
+// hundreds of channels, which previously prevented a snapshot from being
+// created at all on a fresh server.
+const CHANNELS_PER_SYNC = 10;
+const HISTORY_REQUEST_DELAY_MS = 2500;
 
 const slackCollectorLogger = {
   debug: () => {},
@@ -468,11 +471,12 @@ async function syncPublicAnnouncements() {
     }
     nextChannelToSync = channels.length ? (batchStart + channelsAdvanced) % channels.length : 0;
 
-    if (newCount > 0) {
+    if (successfulReads > 0) {
       current.sort((a, b) => Number(b.timestamp) - Number(a.timestamp));
       await saveAnnouncements(current);
-      console.log(`[SlackCollector] Synced ${newCount} new announcements.`);
-    } else {
+      console.log(`[SlackCollector] Snapshot saved with ${current.length} announcements (${newCount} new).`);
+    }
+    if (newCount === 0) {
       console.log('[SlackCollector] Announcements up-to-date.');
     }
 
