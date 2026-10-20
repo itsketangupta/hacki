@@ -806,6 +806,7 @@ body { font-family: Inter, ui-rounded, system-ui, sans-serif; }
 .empty-prompt-card { min-height: 58px; border-color: var(--border-subtle); background: #fffdf9; border-radius: 13px; padding: 11px 14px; box-shadow: 0 2px 0 rgba(60,35,15,.025); }
 .empty-prompt-card:hover { background: #fff; border-color: #eea0a4; box-shadow: 0 5px 15px rgba(86,44,35,.08); transform: translateY(-2px) rotate(-.25deg); }
 .empty-prompt-card .prompt-icon { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 9px; background: #fff1df; }
+.empty-prompt-card .prompt-icon img { display: block; width: 24px; height: 24px; object-fit: contain; }
 .empty-prompt-card .prompt-text { color: var(--text-primary); font-size: 13px; font-weight: 650; }
 
 .messages-list { max-width: 820px; padding-top: 32px; gap: 30px; }
@@ -828,6 +829,8 @@ body { font-family: Inter, ui-rounded, system-ui, sans-serif; }
 .disclaimer a { color: #bd293e; }
 .auth-modal-card { background: #fffaf3; border-color: var(--border-subtle); border-radius: 22px; }
 .auth-modal-title { color: var(--text-primary); }
+.auth-feature-icon { width: 24px; height: 24px; object-fit: contain; margin-top: 1px; }
+.auth-feature-info strong { color: var(--text-primary); }
 
 @media (max-width: 768px) {
   .empty-state { padding: 24px 6px 34px; }

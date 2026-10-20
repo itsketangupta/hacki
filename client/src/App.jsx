@@ -4,16 +4,16 @@ import remarkGfm from 'remark-gfm';
 import './style.css';
 
 const STARTER_PROMPTS = [
-  ['🦖', 'What is Hack Club?', 'What is Hack Club?'],
-  ['🚀', 'What is YSWS?', 'What is YSWS? (You Ship, We Ship)'],
-  ['🌲', 'Where is HQ located?', 'Where is HQ located?'],
-  ['🎓', 'Who are gappies?', 'Who are gappies?'],
-  ['🤝', 'How to contribute?', 'How to contribute Hack Club?'],
-  ['💳', 'What is HCB?', 'What is HCB? (Hack Club Bank)'],
-  ['🚀', 'How to make a YSWS?', 'How do I make a YSWS?'],
-  ['🪪', 'How to verify ID?', 'How to verify ID?'],
-  ['🛠️', 'Free tools (AI, Nest)', 'Hey is Hack Club give us free tools like ai.hackclub.com hackclub.app?'],
-  ['🌟', 'How to become a gappie?', 'How to become gappie?']
+  ['/icons/dinosaur.png', 'What is Hack Club?', 'What is Hack Club?'],
+  ['/icons/rocket.png', 'What is YSWS?', 'What is YSWS? (You Ship, We Ship)'],
+  ['/icons/tree.png', 'Where is HQ located?', 'Where is HQ located?'],
+  ['/icons/graduation.png', 'Who are gappies?', 'Who are gappies?'],
+  ['/icons/handshake.png', 'How to contribute?', 'How to contribute Hack Club?'],
+  ['/icons/card.png', 'What is HCB?', 'What is HCB? (Hack Club Bank)'],
+  ['/icons/rocket.png', 'How to make a YSWS?', 'How do I make a YSWS?'],
+  ['/icons/id.png', 'How to verify ID?', 'How to verify ID?'],
+  ['/icons/tools.png', 'Free tools (AI, Nest)', 'Hey is Hack Club give us free tools like ai.hackclub.com hackclub.app?'],
+  ['/icons/star.png', 'How to become a gappie?', 'How to become gappie?']
 ];
 
 const themeOptions = [
@@ -161,9 +161,9 @@ function AuthModal() {
         <p className="auth-modal-subtitle">Your Hack Club AI assistant and community companion</p>
       </div>
       <div className="auth-modal-features">
-        <div className="auth-feature-row"><div className="auth-feature-icon">💬</div><div className="auth-feature-info"><strong>Chat with Hacki</strong><span>Sign in with your Hack Club account to start a conversation.</span></div></div>
-        <div className="auth-feature-row"><div className="auth-feature-icon">🚀</div><div className="auth-feature-info"><strong>Hack Club knowledge</strong><span>Get help with YSWS programs, tools, community opportunities, and more.</span></div></div>
-        <div className="auth-feature-row"><div className="auth-feature-icon">🔒</div><div className="auth-feature-info"><strong>Your saved conversations</strong><span>Your chat history syncs to your Hacki account across devices.</span></div></div>
+        <div className="auth-feature-row"><img className="auth-feature-icon" src="/icons/chat.png" alt=""/><div className="auth-feature-info"><strong>Chat with Hacki</strong><span>Sign in with your Hack Club account to start a conversation.</span></div></div>
+        <div className="auth-feature-row"><img className="auth-feature-icon" src="/icons/rocket.png" alt=""/><div className="auth-feature-info"><strong>Hack Club knowledge</strong><span>Get help with YSWS programs, tools, community opportunities, and more.</span></div></div>
+        <div className="auth-feature-row"><img className="auth-feature-icon" src="/icons/lock.png" alt=""/><div className="auth-feature-info"><strong>Your saved conversations</strong><span>Your chat history syncs to your Hack Club account across devices.</span></div></div>
       </div>
       <div className="auth-modal-actions"><a href="/auth/login" className="auth-modal-login-btn"><img src="/hackclub-flag.svg" alt="" className="auth-modal-btn-flag"/><span>Sign in with Hack Club</span></a></div>
       <div className="auth-modal-footer">Powered by <a href="https://hackclub.com" target="_blank" rel="noopener noreferrer">Hack Club</a></div>
@@ -438,7 +438,7 @@ export default function App() {
             <div className="empty-hero-row"><div className="empty-logo-wrap"><img src="/hacki-logo.png" alt="Hacki" className="empty-hacki-logo"/></div><span className="empty-doodle" aria-hidden="true">✳</span></div>
             <h2 className="empty-title">Make something<br className="desktop-break"/> cool.</h2><p className="empty-desc">Questions about Hack Club? Stuck on a project? Pull up a chair — let’s figure it out.</p>
             <div className="prompt-section-label">A FEW PLACES TO START</div>
-            <div className="empty-prompts-grid">{STARTER_PROMPTS.map(([icon, label, query]) => <button key={label} className="empty-prompt-card" onClick={() => handleSend(query)}><span className="prompt-icon">{icon}</span><span className="prompt-text">{label}</span></button>)}</div>
+            <div className="empty-prompts-grid">{STARTER_PROMPTS.map(([icon, label, query]) => <button key={label} className="empty-prompt-card" onClick={() => handleSend(query)}><span className="prompt-icon"><img src={icon} alt="" /></span><span className="prompt-text">{label}</span></button>)}</div>
           </div>}
           {activeChat?.messages?.length > 0 && <div className="messages-list">{activeChat.messages.map((message, index) => <Message key={message.id || `${activeChat.id}-${index}`} message={message}/>)}{pendingChatId === activeChat.id && <TypingIndicator/>}</div>}
         </div>}
