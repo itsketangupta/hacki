@@ -134,6 +134,22 @@ async function getSlackThreadHistory(client, event) {
   }
 }
 
+async function getCurrentChannelContext(client, channelId) {
+  try {
+    const result = await client.conversations.info({ channel: channelId });
+    const channel = result.channel || {};
+    return {
+      id: channel.id || channelId,
+      name: channel.name || '',
+      purpose: channel.purpose?.value || '',
+      topic: channel.topic?.value || ''
+    };
+  } catch (err) {
+    console.log(`[SlackBot] Current channel details unavailable (${err.data?.error || err.message}).`);
+    return { id: channelId, name: '', purpose: '', topic: '' };
+  }
+}
+
 function getRecentDMHistory(channelId) {
   const entry = dmHistories.get(channelId);
   if (!entry || Date.now() - entry.updatedAt > DM_HISTORY_TTL_MS) {
@@ -187,7 +203,8 @@ export async function initSlackBot() {
         // Strip the bot mention tag
         const cleanPrompt = event.text.replace(/<@[A-Z0-9]+>/g, '').trim();
         const threadHistory = await getSlackThreadHistory(botApp.client, event);
-        const response = await askHacki(cleanPrompt, threadHistory);
+        const currentChannel = await getCurrentChannelContext(botApp.client, event.channel);
+        const response = await askHacki(cleanPrompt, threadHistory, { currentChannel });
 
         await say({
           text: formatForSlack(response.answer, response.sources),
