@@ -24,7 +24,8 @@ import {
   getAllSettings,
   deleteSetting,
   setAnswerFeedback,
-  userOwnsAssistantMessage
+  userOwnsAssistantMessage,
+  getRecentSlackMentions
 } from '../db/database.js';
 
 export const apiRouter = express.Router();
@@ -65,6 +66,18 @@ apiRouter.get('/auth/me', (req, res) => {
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
   const user = getSessionUser(req);
   res.json({ ok: true, user: user || null });
+});
+
+apiRouter.get('/admin/mentions', (req, res) => {
+  const user = getSessionUser(req);
+  if (!user || user.slackId !== config.adminSlackUserId) {
+    return res.status(403).json({ ok: false, error: 'Admin access is restricted.' });
+  }
+  const mentions = getRecentSlackMentions(7).map(mention => ({
+    ...mention,
+    slackUrl: `https://hackclub.enterprise.slack.com/archives/${encodeURIComponent(mention.channel_id)}/p${String(mention.slack_ts).replace('.', '')}`
+  }));
+  res.json({ ok: true, mentions, since: new Date((Date.now() - 7 * 86400_000)).toISOString() });
 });
 
 // ---------------------------------------------------------------------------

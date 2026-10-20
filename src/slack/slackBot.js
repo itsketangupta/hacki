@@ -20,7 +20,8 @@ import {
   addSlackMemory, getSlackMemories, deleteSlackMemories,
   addSlackReminder, getDueSlackReminders, completeSlackReminder,
   getSlackRemindersForUser, deleteSlackReminder, eraseSlackUserData,
-  setSlackInstructions, getSlackInstructions, deleteSlackInstructions
+  setSlackInstructions, getSlackInstructions, deleteSlackInstructions,
+  recordSlackMention
 } from '../db/database.js';
 
 let botApp = null;
@@ -1185,9 +1186,25 @@ export async function initSlackBot() {
     // Only a human's active interaction can trigger a silent #hacki invite.
 
     // 1. Listen for mentions (@Hacki what is the newest YSWS?)
-    botApp.event('app_mention', async ({ event, say }) => {
+    botApp.event('app_mention', async ({ event, say, client, body }) => {
       if (event.bot_id || event.subtype === 'bot_message') return;
       console.log(`[SlackBot] Received mention in #${event.channel} from ${event.user}`);
+      let channelName = null;
+      try {
+        const channelInfo = await client.conversations.info({ channel: event.channel });
+        channelName = channelInfo.channel?.name || null;
+      } catch (err) {
+        console.warn(`[SlackBot] Could not resolve mention channel ${event.channel}: ${err.data?.error || err.message}`);
+      }
+      recordSlackMention({
+        eventKey: body?.event_id || `${event.channel}:${event.ts}:${event.user || ''}`,
+        channelId: event.channel,
+        channelName,
+        userId: event.user,
+        messageText: event.text || '',
+        occurredAt: Math.floor(Number(event.ts)) || Math.floor(Date.now() / 1000),
+        slackTs: event.ts
+      });
       try {
         const cleanPrompt = event.text.replace(/<@[A-Z0-9]+>/g, '').trim();
         const replyInThread = payload => say({ ...payload, thread_ts: event.thread_ts || event.ts });

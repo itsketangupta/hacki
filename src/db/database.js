@@ -161,12 +161,37 @@ function migrate(db) {
       sandbox_id TEXT NOT NULL,
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
+
+    CREATE TABLE IF NOT EXISTS slack_mentions (
+      event_key TEXT PRIMARY KEY,
+      channel_id TEXT NOT NULL,
+      channel_name TEXT,
+      user_id TEXT,
+      message_text TEXT NOT NULL,
+      occurred_at INTEGER NOT NULL,
+      slack_ts TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_slack_mentions_occurred_at ON slack_mentions(occurred_at DESC);
   `);
 
   const sandboxColumns = db.prepare('PRAGMA table_info(slack_sandboxes)').all();
   if (!sandboxColumns.some(column => column.name === 'slack_user_id')) {
     db.exec("ALTER TABLE slack_sandboxes ADD COLUMN slack_user_id TEXT NOT NULL DEFAULT ''");
   }
+}
+
+export function recordSlackMention({ eventKey, channelId, channelName, userId, messageText, occurredAt, slackTs }) {
+  if (!eventKey || !channelId || !messageText) return;
+  getDb().prepare(`INSERT OR IGNORE INTO slack_mentions
+    (event_key, channel_id, channel_name, user_id, message_text, occurred_at, slack_ts)
+    VALUES (?, ?, ?, ?, ?, ?, ?)`)
+    .run(eventKey, channelId, channelName || null, userId || null, String(messageText).slice(0, 4000), occurredAt || Math.floor(Date.now() / 1000), String(slackTs || occurredAt || Math.floor(Date.now() / 1000)));
+}
+
+export function getRecentSlackMentions(days = 7) {
+  const since = Math.floor(Date.now() / 1000) - Math.max(1, Math.min(30, days)) * 86400;
+  return getDb().prepare(`SELECT event_key, channel_id, channel_name, user_id, message_text, occurred_at
+    FROM slack_mentions WHERE occurred_at >= ? ORDER BY occurred_at DESC LIMIT 500`).all(since);
 }
 
 export function getSlackSandbox(threadKey) {

@@ -36,6 +36,7 @@ export const config = {
   
   // Slack Integration
   slackBotToken: process.env.SLACK_BOT_TOKEN || '',
+  adminSlackUserId: process.env.HACKI_ADMIN_SLACK_USER_ID || 'U093BDEP8FJ',
   slackAppToken: process.env.SLACK_APP_TOKEN || '',
   slackHackiChannel: process.env.SLACK_HACKI_CHANNEL || 'hacki',
   enableSlackBot: process.env.ENABLE_SLACK_BOT !== 'false',

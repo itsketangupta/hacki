@@ -32,9 +32,40 @@ function Icon({ name, size = 20 }) {
     edit: <><path d="M12 20h9"/><path d="m16.5 3.5 4 4L7 21l-4 1 1-4Z"/></>,
     trash: <><path d="M3 6h18M8 6V4h8v2m3 0-1 14H6L5 6m4 4v7m6-7v7"/></>,
     send: <><path d="M12 19V5M5 12l7-7 7 7"/></>,
+    shield: <><path d="M12 22s8-4 8-11V5l-8-3-8 3v6c0 7 8 11 8 11Z"/><path d="m9 12 2 2 4-4"/></>,
     copy: <><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></>
   };
   return <svg {...shared}>{paths[name]}</svg>;
+}
+
+function AdminDashboard() {
+  const [mentions, setMentions] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/admin/mentions', { credentials: 'include', cache: 'no-store' })
+      .then(async response => {
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Could not load mentions.');
+        return data;
+      })
+      .then(data => { if (!cancelled) setMentions(data.mentions || []); })
+      .catch(err => { if (!cancelled) setError(err.message); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [refreshKey]);
+
+  return <section className="admin-dashboard">
+    <div className="admin-heading"><div><span className="empty-kicker"><span className="empty-kicker-dot"/> ADMIN</span><h1>Hacki mentions</h1><p>Slack mentions received in the last 7 days.</p></div><button className="admin-refresh-btn" onClick={() => { setLoading(true); setError(''); setRefreshKey(value => value + 1); }}>Refresh</button></div>
+    {loading ? <div className="admin-empty">Loading mentions…</div> : error ? <div className="admin-empty admin-error">{error}</div> : mentions.length === 0 ? <div className="admin-empty">No mentions recorded in the last 7 days yet. New mentions will appear here.</div> : <div className="admin-mention-list">{mentions.map(mention => <article className="admin-mention-card" key={mention.event_key}>
+      <div className="admin-mention-meta"><a href={mention.slackUrl} target="_blank" rel="noopener noreferrer">#{mention.channel_name || mention.channel_id}</a><time dateTime={new Date(mention.occurred_at * 1000).toISOString()}>{new Date(mention.occurred_at * 1000).toLocaleString()}</time></div>
+      <p className="admin-mention-text">{mention.message_text}</p>
+      <div className="admin-mention-author">Mentioned by {mention.user_id || 'unknown user'}</div>
+    </article>)}</div>}
+  </section>;
 }
 
 function newChat() {
@@ -239,6 +270,7 @@ export default function App() {
   const [sending, setSending] = useState(false);
   const [pendingChatId, setPendingChatId] = useState(null);
   const [opportunitiesOpen, setOpportunitiesOpen] = useState(false);
+  const [adminOpen, setAdminOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(() => typeof window !== 'undefined' && window.innerWidth > 768);
   const textareaRef = useRef(null);
   const conversationRef = useRef(null);
@@ -314,6 +346,7 @@ export default function App() {
 
   function createNewChat() {
     setOpportunitiesOpen(false);
+    setAdminOpen(false);
     const chat = newChat();
     setChats(current => [chat, ...current]);
     setActiveId(chat.id);
@@ -406,7 +439,8 @@ export default function App() {
             <button className="sidebar-toggle-btn" title="Close sidebar" aria-label="Close sidebar" onClick={() => setSidebarOpen(false)}><Icon name="close" /></button>
           </div>
           <button className="new-chat-btn" onClick={createNewChat}><Icon name="plus" size={18}/><span>New chat</span></button>
-          <button className={`new-chat-btn opportunity-nav-btn ${opportunitiesOpen ? 'selected' : ''}`} onClick={() => { setOpportunitiesOpen(true); if (window.innerWidth <= 768) setSidebarOpen(false); }}><Icon name="search" size={18}/><span>Find opportunities</span></button>
+          <button className={`new-chat-btn opportunity-nav-btn ${opportunitiesOpen ? 'selected' : ''}`} onClick={() => { setAdminOpen(false); setOpportunitiesOpen(true); if (window.innerWidth <= 768) setSidebarOpen(false); }}><Icon name="search" size={18}/><span>Find opportunities</span></button>
+          {user?.slackId === 'U093BDEP8FJ' && <button className={`new-chat-btn opportunity-nav-btn ${adminOpen ? 'selected' : ''}`} onClick={() => { setOpportunitiesOpen(false); setAdminOpen(true); if (window.innerWidth <= 768) setSidebarOpen(false); }}><Icon name="shield" size={18}/><span>Admin</span></button>}
         </div>
         <div className="sidebar-chats">
           {chats.length === 0 ? <div className="chat-history-empty-notice">{authReady && user ? 'Loading your conversations…' : 'Sign in to see your conversations'}</div> : chats.map(chat => <div key={chat.id} className={`chat-history-item ${chat.id === activeChat?.id ? 'active' : ''}`} onClick={() => { setActiveId(chat.id); if (window.innerWidth <= 768) setSidebarOpen(false); }}>
@@ -432,7 +466,7 @@ export default function App() {
           </div>
         </header>
 
-        {opportunitiesOpen ? <div className="conversation-container opportunity-container"><OpportunityFinder/></div> : <div className="conversation-container" ref={conversationRef}>
+        {adminOpen ? <div className="conversation-container opportunity-container"><AdminDashboard/></div> : opportunitiesOpen ? <div className="conversation-container opportunity-container"><OpportunityFinder/></div> : <div className="conversation-container" ref={conversationRef}>
           {onFreshChat && <div className="empty-state">
             <div className="empty-kicker"><span className="empty-kicker-dot"/> A LITTLE HELP FOR YOUR NEXT BIG BUILD</div>
             <div className="empty-hero-row"><div className="empty-logo-wrap"><img src="/hacki-logo.png" alt="Hacki" className="empty-hacki-logo"/></div><span className="empty-doodle" aria-hidden="true">✳</span></div>
@@ -443,7 +477,7 @@ export default function App() {
           {activeChat?.messages?.length > 0 && <div className="messages-list">{activeChat.messages.map((message, index) => <Message key={message.id || `${activeChat.id}-${index}`} message={message}/>)}{pendingChatId === activeChat.id && <TypingIndicator/>}</div>}
         </div>}
 
-        {!opportunitiesOpen && <div className="input-container"><div className="input-box">
+        {!opportunitiesOpen && !adminOpen && <div className="input-container"><div className="input-box">
           <textarea id="chat-input" ref={textareaRef} rows={1} placeholder={user ? 'Message Hacki…' : 'Sign in with Hack Club to chat'} disabled={!user || sending} value={draft} onChange={handleTextareaChange} onKeyDown={handleKeyDown} aria-label="Message Hacki" />
           <button className="send-btn" onClick={() => handleSend()} disabled={!user || sending || !draft.trim()} title="Send message" aria-label="Send message"><Icon name="send" size={18}/></button>
         </div><div className="disclaimer">Hacki can make mistakes. Check verified Hack Club sources on Slack &amp; <a href="https://hackclub.com" target="_blank" rel="noopener noreferrer">hackclub.com</a>.</div></div>}
