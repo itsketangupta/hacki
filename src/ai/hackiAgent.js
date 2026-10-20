@@ -233,6 +233,32 @@ Here is the official guide and canvas for how to communicate and use Hack Club S
    - **\`#ask-the-ysws-orgs\`** — Advice on running your own YSWS.
 5. **Direct Messages (DMs):** Only DM organizers when appropriate (e.g. following up on specific private tasks). For general help, post in public channels so others can help and learn too!`;
 
+async function fetchChatCompletionWithRetries(url, options) {
+  const maxAttempts = 3;
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    let response;
+    try {
+      response = await fetch(url, { ...options, signal: AbortSignal.timeout(60_000) });
+    } catch (error) {
+      if (attempt === maxAttempts) throw error;
+      const delayMs = 500 * (2 ** (attempt - 1));
+      console.warn(`[HackiAgent] AI Gateway request failed (${error.message}); retrying in ${delayMs}ms.`);
+      await new Promise(resolve => setTimeout(resolve, delayMs));
+      continue;
+    }
+
+    if (![429, 502, 503, 504].includes(response.status) || attempt === maxAttempts) return response;
+    await response.body?.cancel().catch(() => {});
+    const retryAfter = Number(response.headers.get('retry-after'));
+    const delayMs = Number.isFinite(retryAfter) && retryAfter > 0
+      ? Math.min(5000, retryAfter * 1000)
+      : 500 * (2 ** (attempt - 1));
+    console.warn(`[HackiAgent] AI Gateway returned HTTP ${response.status}; retrying in ${delayMs}ms.`);
+    await new Promise(resolve => setTimeout(resolve, delayMs));
+  }
+  throw new Error('AI Gateway request failed after retries');
+}
+
 export async function askHacki(userMessage, conversationHistory = []) {
   const query = String(userMessage || '').trim();
   if (!query) {
@@ -246,7 +272,7 @@ export async function askHacki(userMessage, conversationHistory = []) {
   // Keep ordinary chat and short/slang messages from falling through to the
   // strict topic filter (which otherwise mistakes them for unrelated topics).
   const casualQuery = query.toLowerCase().replace(/[.,!?\s]+$/g, '').trim();
-  const isCasualGreeting = /^(?:h+i+|he+y+|hello+|yo+|sup|what'?s up|namaste|salaam|assalamu alaikum)$/i.test(casualQuery);
+  const isCasualGreeting = /^(?:huii|h+i+|he+y+|hello+|yo+|sup|what'?s up|namaste|salaam|assalamu alaikum)$/i.test(casualQuery);
   const isCasualAcknowledgement = /^(?:ok(?:ay)?|k|kk|alright|got it|thanks?|thank you|ty|thx|lol|lmao|haha+|bruh|oh+h+|ah+h+|fah+h+|okh)$/i.test(casualQuery);
   const isShortAmbiguousMessage = /^(?:op|\?{2,}|huh|hm+|hmm+)$/i.test(casualQuery);
   const isContextualShortFollowup = isShortAmbiguousMessage && conversationHistory.length > 0;
@@ -254,7 +280,7 @@ export async function askHacki(userMessage, conversationHistory = []) {
     const usesHinglish = /\b(?:kya|hai|haan|han|bhai|kaise|kaisa|mujhe|mera|meri|bata|batao|samjha|matlab|accha|achha|theek|nahi|nah|karna|karo|chahiye)\b/i.test(query);
     let answer;
     if (isCasualGreeting) {
-      answer = usesHinglish ? 'Hey! Kya help chahiye? General questions, writing, ideas, ya Hack Club ke baare mein poochho 🙂' : 'Hey! What can I help with? Ask a general question, get help writing or brainstorming, or ask about Hack Club 🙂';
+      answer = /^huii$/i.test(casualQuery) ? 'Hii! Kaise ho? Kya chal raha hai?' : usesHinglish ? 'Hey! Kya help chahiye? General questions, writing, ideas, ya Hack Club ke baare mein poochho 🙂' : 'Hey! What can I help with? Ask a general question, get help writing or brainstorming, or ask about Hack Club 🙂';
     } else if (isCasualAcknowledgement) {
       answer = usesHinglish ? 'Theek hai 🙂 Aur kuch poochna ho toh bolo!' : 'Got it 🙂 Let me know what you need.';
     } else {
@@ -391,7 +417,7 @@ export async function askHacki(userMessage, conversationHistory = []) {
   const systemPrompt = `You are Hacki, a helpful conversational AI made for the Hack Club community. You can also answer ordinary general questions, chat naturally, explain what you can do, brainstorm, solve problems, and draft or rewrite text for the user.
 Current date: ${new Date().toISOString().slice(0, 10)}.
 
-Answer the actual request without insisting that it be about Hack Club. For stable general knowledge, use your model knowledge. For fast-changing facts you cannot verify from current sources, say so and avoid presenting a guess as current. Be conversational with greetings and short replies. Understand the user's language and answer in the same language; use simple Latin-script Hinglish when the user writes Hinglish.
+Answer the actual request without insisting that it be about Hack Club. For stable general knowledge, use your model knowledge. For fast-changing facts you cannot verify from current sources, say so and avoid presenting a guess as current. Be conversational with greetings and short replies. Default to English unless the user explicitly asks for another language. Use the exact configured Hinglish response for a bare "huii" greeting.
 When drafting a message, write from the point of view the user requested (often first person as the user); do not answer as Hacki unless they ask for a bot reply. A message that mentions its author is the creator/developer is not itself a question about the creator.
 
 ACCURACY:
@@ -423,7 +449,7 @@ STYLE:
       }
     ];
 
-    const aiResponse = await fetch(`${config.aiBaseUrl}/chat/completions`, {
+    const aiResponse = await fetchChatCompletionWithRetries(`${config.aiBaseUrl}/chat/completions`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
