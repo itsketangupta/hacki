@@ -1623,6 +1623,9 @@ body { font-family: Inter, ui-rounded, system-ui, sans-serif; }
   gap: 10px;
 }
 
+.email-updates-consent { display: flex; align-items: flex-start; gap: 9px; margin: 0 0 14px; color: var(--text-secondary); font-size: 11.5px; line-height: 1.45; cursor: pointer; }
+.email-updates-consent input, .user-email-preference input { accent-color: var(--primary-hc); }
+
 .auth-modal-login-btn {
   display: flex;
   align-items: center;
@@ -1680,6 +1683,10 @@ body { font-family: Inter, ui-rounded, system-ui, sans-serif; }
 .user-slack-tag.clickable:hover {
   text-decoration: underline;
 }
+
+.user-email-preference { display: flex; align-items: center; gap: 5px; margin-top: 5px; color: var(--text-muted); font-size: 10.5px; cursor: pointer; }
+.user-email-preference input { width: 12px; height: 12px; margin: 0; }
+.user-email-preference-error { color: var(--primary-hc); font-size: 10px; overflow-wrap: anywhere; }
 
 .slack-dot {
   width: 6px;
@@ -1741,6 +1748,20 @@ body { font-family: Inter, ui-rounded, system-ui, sans-serif; }
 .admin-mention-reply span { color: var(--primary-hc); font-size: 10px; font-weight: 750; letter-spacing: .04em; text-transform: uppercase; }
 .admin-mention-reply p { margin: 6px 0 0; color: var(--text-secondary); font-size: 13px; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; }
 .admin-mention-author { color: var(--text-muted); font-size: 11px; }
+.admin-section-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin: 26px 0 12px; }
+.admin-section-heading h2 { margin: 0; color: var(--text-primary); font-size: 17px; }
+.admin-section-heading p, .admin-section-heading > span { margin: 5px 0 0; color: var(--text-muted); font-size: 12px; }
+.admin-email-panel { padding: 18px; border: 1px solid var(--border-subtle); border-radius: 14px; background: var(--bg-sidebar); }
+.admin-email-panel .admin-section-heading { margin: 0 0 12px; }
+.admin-email-sender { margin-bottom: 10px; color: var(--text-muted); font-size: 11px; }
+.admin-email-notice, .admin-email-status { margin: 10px 0; color: var(--primary-hc); font-size: 12px; line-height: 1.5; }
+.admin-email-form { display: grid; gap: 10px; }
+.admin-email-form input, .admin-email-form textarea { width: 100%; padding: 11px 12px; border: 1px solid var(--border-subtle); border-radius: 9px; background: var(--bg-input); color: var(--text-primary); font: inherit; font-size: 13px; }
+.admin-email-form textarea { min-height: 150px; resize: vertical; line-height: 1.5; }
+.admin-email-form .admin-refresh-btn { justify-self: start; background: var(--primary-hc); border-color: var(--primary-hc); color: #fff; }
+.admin-email-form .admin-refresh-btn:disabled { opacity: .5; cursor: not-allowed; }
+.admin-email-form .admin-refresh-btn:not(:disabled):hover { filter: brightness(1.08); }
+.admin-mentions-heading { margin-top: 32px; }
 .opportunity-state { padding: 24px 12px; color: var(--text-secondary); font-size: 13px; text-align: center; }
 .opportunity-freshness { margin: 18px 0 0; }
 

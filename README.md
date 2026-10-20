@@ -27,7 +27,7 @@ The web client uses **React** and **Vite**. An **Express** server provides the a
 - Start a temporary public static preview for a project directory in the current thread's E2B sandbox after confirmation. Anyone with the URL can view it while the sandbox remains active.
 - Public GitHub repository, issue, and file lookups; optionally prepare a confirmed edit in operator-approved repositories.
 - Channel post requests and polls go through an interactive confirmation; `react: emoji` adds a reaction to the current thread’s parent message.
-- Optional SMTP email sending from DMs, with recipient, subject, and body shown for confirmation before sending.
+- Optional SMTP email sending from DMs, one-time account welcome emails, and admin broadcasts to members who opted in.
 - Persistent Slack reminders through `remind me in 20m to ...` or `remind me every 1h to ...`.
 - Private per-user Slack memories through `remember: ...`, `what do you remember?`, and `forget memories` in DMs.
 - Per-user custom DM instructions through `instructions: ...` and `clear instructions`.
@@ -94,7 +94,7 @@ Run `npm start` to build the client and start Express. On Hack Club Nest, instal
 | `GITHUB_TOKEN`, `GITHUB_ALLOWED_OWNERS`, `GITHUB_ALLOWED_SLACK_USERS` | Optional GitHub file edits; both allowlists and a fine-grained Contents read/write token are required; edits require Slack confirmation |
 | `SLACK_USER_SECRETS_ENCRYPTION_KEY` | Optional base64 32-byte key used to encrypt per-user model API keys and MCP bearer tokens stored from Slack App Home |
 | `E2B_API_KEY` | Optional E2B API key for isolated per-thread code execution |
-| `SMTP_URL` / `MAIL_FROM` | Optional SMTP sender; email requests from DMs require a confirmation click |
+| `SMTP_URL` / `MAIL_FROM` | Optional SMTP sender. Welcome emails send once to new accounts; admin broadcasts include only opted-in members. |
 | `HACKCLUB_CLIENT_ID` / `HACKCLUB_CLIENT_SECRET` | Hack Club OAuth credentials |
 | `HACKCLUB_REDIRECT_URI` | Registered OAuth callback URL |
 | `PUBLIC_BASE_URL` | Public site URL in production |

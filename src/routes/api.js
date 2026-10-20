@@ -8,6 +8,7 @@ import { loadAnnouncements, getHiringOpportunities, getRecentAnnouncements, sear
 import { getSessionUser } from '../auth/hackclubAuth.js';
 import { autoAddUserToHackiChannel } from '../slack/slackChannelManager.js';
 import { config } from '../config.js';
+import { sendEmail, isEmailConfigured } from '../integrations/email.js';
 import {
   getOrCreateChatSession,
   getChatSessionByKey,
@@ -25,7 +26,10 @@ import {
   deleteSetting,
   setAnswerFeedback,
   userOwnsAssistantMessage,
-  getRecentSlackMentions
+  getRecentSlackMentions,
+  getEmailMarketingOptIn,
+  setEmailMarketingOptIn,
+  getEmailMarketingRecipients
 } from '../db/database.js';
 
 export const apiRouter = express.Router();
@@ -65,7 +69,16 @@ async function getDataSnapshotDates() {
 apiRouter.get('/auth/me', (req, res) => {
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
   const user = getSessionUser(req);
-  res.json({ ok: true, user: user || null });
+  res.json({ ok: true, user: user ? { ...user, emailMarketingOptIn: getEmailMarketingOptIn(user.id) } : null });
+});
+
+apiRouter.post('/account/email-preferences', (req, res) => {
+  const user = getSessionUser(req);
+  if (!user) return res.status(401).json({ ok: false, error: 'Sign in to update email preferences.' });
+  if (typeof req.body?.optIn !== 'boolean') return res.status(400).json({ ok: false, error: 'Choose whether to receive Hacki updates.' });
+  if (req.body.optIn && !user.email) return res.status(400).json({ ok: false, error: 'Your account does not have an email address to subscribe.' });
+  setEmailMarketingOptIn(user.id, req.body.optIn);
+  res.json({ ok: true, emailMarketingOptIn: req.body.optIn });
 });
 
 apiRouter.get('/admin/mentions', (req, res) => {
@@ -78,6 +91,45 @@ apiRouter.get('/admin/mentions', (req, res) => {
     slackUrl: `https://hackclub.enterprise.slack.com/archives/${encodeURIComponent(mention.channel_id)}/p${String(mention.slack_ts).replace('.', '')}`
   }));
   res.json({ ok: true, mentions, since: new Date((Date.now() - 7 * 86400_000)).toISOString() });
+});
+
+function isAdminUser(req) {
+  const user = getSessionUser(req);
+  return user?.slackId === config.adminSlackUserId ? user : null;
+}
+
+apiRouter.get('/admin/email', (req, res) => {
+  if (!isAdminUser(req)) return res.status(403).json({ ok: false, error: 'Admin access is restricted.' });
+  res.json({ ok: true, configured: isEmailConfigured(), sender: config.mailFrom, recipients: getEmailMarketingRecipients().length });
+});
+
+apiRouter.post('/admin/email', async (req, res) => {
+  if (!isAdminUser(req)) return res.status(403).json({ ok: false, error: 'Admin access is restricted.' });
+  if (!isEmailConfigured()) return res.status(503).json({ ok: false, error: 'Email sending is not configured on Nest yet.' });
+  const subject = String(req.body?.subject || '').trim();
+  const message = String(req.body?.message || '').trim();
+  if (subject.length < 3 || subject.length > 180 || /[\r\n]/.test(subject)) return res.status(400).json({ ok: false, error: 'Subject must be 3 to 180 characters on one line.' });
+  if (!message || message.length > 10000) return res.status(400).json({ ok: false, error: 'Message must be 1 to 10,000 characters.' });
+
+  const recipients = getEmailMarketingRecipients();
+  if (!recipients.length) return res.status(400).json({ ok: false, error: 'No members have opted in to Hacki update emails.' });
+
+  let sent = 0;
+  let failed = 0;
+  for (let index = 0; index < recipients.length; index += 5) {
+    const batch = recipients.slice(index, index + 5);
+    const results = await Promise.allSettled(batch.map(recipient => {
+      const token = crypto.createHmac('sha256', config.authClientSecret).update(recipient.id).digest('hex');
+      const unsubscribeUrl = `${config.publicBaseUrl}/auth/unsubscribe?user=${encodeURIComponent(recipient.id)}&token=${token}`;
+      return sendEmail({
+        to: recipient.email,
+        subject,
+        text: `${message}\n\n---\nYou received this because you opted in to Hacki email updates. Unsubscribe: ${unsubscribeUrl}`
+      });
+    }));
+    for (const result of results) result.status === 'fulfilled' ? sent++ : failed++;
+  }
+  res.json({ ok: true, sent, failed, total: recipients.length });
 });
 
 // ---------------------------------------------------------------------------

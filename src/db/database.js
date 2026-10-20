@@ -48,6 +48,11 @@ function migrate(db) {
       slack_id     TEXT,
       slack_url    TEXT,
       avatar       TEXT,
+      email_marketing_opt_in INTEGER NOT NULL DEFAULT 0,
+      email_marketing_opt_in_at TEXT,
+      welcome_email_eligible INTEGER NOT NULL DEFAULT 0,
+      welcome_email_sent_at TEXT,
+      welcome_email_claimed_at TEXT,
       slack_channel_status TEXT DEFAULT 'pending',
       slack_channel_joined INTEGER DEFAULT 0,
       slack_channel_id     TEXT,
@@ -183,6 +188,12 @@ function migrate(db) {
   if (!mentionColumns.some(column => column.name === 'reply_text')) {
     db.exec('ALTER TABLE slack_mentions ADD COLUMN reply_text TEXT');
   }
+  const userColumns = db.prepare('PRAGMA table_info(users)').all();
+  if (!userColumns.some(column => column.name === 'email_marketing_opt_in')) db.exec('ALTER TABLE users ADD COLUMN email_marketing_opt_in INTEGER NOT NULL DEFAULT 0');
+  if (!userColumns.some(column => column.name === 'email_marketing_opt_in_at')) db.exec('ALTER TABLE users ADD COLUMN email_marketing_opt_in_at TEXT');
+  if (!userColumns.some(column => column.name === 'welcome_email_eligible')) db.exec('ALTER TABLE users ADD COLUMN welcome_email_eligible INTEGER NOT NULL DEFAULT 0');
+  if (!userColumns.some(column => column.name === 'welcome_email_sent_at')) db.exec('ALTER TABLE users ADD COLUMN welcome_email_sent_at TEXT');
+  if (!userColumns.some(column => column.name === 'welcome_email_claimed_at')) db.exec('ALTER TABLE users ADD COLUMN welcome_email_claimed_at TEXT');
 }
 
 export function recordSlackMention({ eventKey, channelId, channelName, userId, messageText, occurredAt, slackTs }) {
@@ -345,10 +356,11 @@ export function completeSlackReminder(id, intervalMs = null, nextDueAt = null) {
 export function upsertUser(user) {
   const db = getDb();
   db.prepare(`
-    INSERT INTO users (id, name, email, slack_id, slack_url, avatar,
+    INSERT INTO users (id, name, email, slack_id, slack_url, avatar, email_marketing_opt_in, email_marketing_opt_in_at, welcome_email_eligible,
                        slack_channel_status, slack_channel_joined, slack_channel_id,
                        first_seen_at, last_login_at)
-    VALUES (@id, @name, @email, @slackId, @slackUrl, @avatar,
+    VALUES (@id, @name, @email, @slackId, @slackUrl, @avatar, @emailMarketingOptIn,
+            CASE WHEN @emailMarketingOptIn = 1 THEN datetime('now') ELSE NULL END, @welcomeEmailEligible,
             @slackChannelStatus, @slackChannelJoined, @slackChannelId,
             @firstSeenAt, @lastLoginAt)
     ON CONFLICT(id) DO UPDATE SET
@@ -357,6 +369,8 @@ export function upsertUser(user) {
       slack_id             = excluded.slack_id,
       slack_url            = excluded.slack_url,
       avatar               = excluded.avatar,
+      email_marketing_opt_in = CASE WHEN excluded.email_marketing_opt_in = 1 THEN 1 ELSE users.email_marketing_opt_in END,
+      email_marketing_opt_in_at = CASE WHEN excluded.email_marketing_opt_in = 1 THEN COALESCE(users.email_marketing_opt_in_at, datetime('now')) ELSE users.email_marketing_opt_in_at END,
       slack_channel_status = excluded.slack_channel_status,
       slack_channel_joined = excluded.slack_channel_joined,
       slack_channel_id     = excluded.slack_channel_id,
@@ -368,6 +382,8 @@ export function upsertUser(user) {
     slackId: user.slackId || null,
     slackUrl: user.slackUrl || null,
     avatar: user.avatar || null,
+    emailMarketingOptIn: user.emailMarketingOptIn ? 1 : 0,
+    welcomeEmailEligible: user.welcomeEmailEligible ? 1 : 0,
     slackChannelStatus: user.slackChannelStatus || 'pending',
     slackChannelJoined: user.slackChannelJoined ? 1 : 0,
     slackChannelId: user.slackChannelId || null,
@@ -382,6 +398,36 @@ export function getUserById(id) {
 
 export function getAllUsers() {
   return getDb().prepare('SELECT * FROM users ORDER BY last_login_at DESC').all();
+}
+
+export function setEmailMarketingOptIn(userId, optedIn) {
+  return getDb().prepare(`UPDATE users SET email_marketing_opt_in = ?,
+    email_marketing_opt_in_at = CASE WHEN ? = 1 THEN datetime('now') ELSE NULL END WHERE id = ?`)
+    .run(optedIn ? 1 : 0, optedIn ? 1 : 0, userId).changes;
+}
+
+export function getEmailMarketingOptIn(userId) {
+  return Boolean(getDb().prepare('SELECT email_marketing_opt_in FROM users WHERE id = ?').get(userId)?.email_marketing_opt_in);
+}
+
+export function getEmailMarketingRecipients() {
+  return getDb().prepare(`SELECT id, name, email FROM users
+    WHERE email_marketing_opt_in = 1 AND email IS NOT NULL AND email != '' ORDER BY first_seen_at`).all();
+}
+
+export function claimWelcomeEmail(userId) {
+  return getDb().prepare(`UPDATE users SET welcome_email_claimed_at = datetime('now')
+    WHERE id = ? AND welcome_email_eligible = 1 AND welcome_email_sent_at IS NULL
+      AND (welcome_email_claimed_at IS NULL OR julianday(welcome_email_claimed_at) < julianday('now', '-10 minutes'))`).run(userId).changes === 1;
+}
+
+export function markWelcomeEmailSent(userId) {
+  getDb().prepare(`UPDATE users SET welcome_email_sent_at = datetime('now'), welcome_email_claimed_at = NULL,
+    welcome_email_eligible = 0 WHERE id = ?`).run(userId);
+}
+
+export function releaseWelcomeEmailClaim(userId) {
+  getDb().prepare('UPDATE users SET welcome_email_claimed_at = NULL WHERE id = ? AND welcome_email_sent_at IS NULL').run(userId);
 }
 
 // ---------------------------------------------------------------------------

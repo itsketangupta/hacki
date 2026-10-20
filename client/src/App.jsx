@@ -43,6 +43,11 @@ function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [refreshKey, setRefreshKey] = useState(0);
+  const [emailInfo, setEmailInfo] = useState(null);
+  const [emailSubject, setEmailSubject] = useState('');
+  const [emailMessage, setEmailMessage] = useState('');
+  const [emailSending, setEmailSending] = useState(false);
+  const [emailStatus, setEmailStatus] = useState('');
 
   useEffect(() => {
     let cancelled = false;
@@ -58,8 +63,47 @@ function AdminDashboard() {
     return () => { cancelled = true; };
   }, [refreshKey]);
 
+  useEffect(() => {
+    fetch('/api/admin/email', { credentials: 'include', cache: 'no-store' })
+      .then(response => response.json())
+      .then(data => { if (data.ok) setEmailInfo(data); })
+      .catch(() => {});
+  }, []);
+
+  async function sendCustomEmail(event) {
+    event.preventDefault();
+    setEmailSending(true);
+    setEmailStatus('');
+    try {
+      const response = await fetch('/api/admin/email', {
+        method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ subject: emailSubject, message: emailMessage })
+      });
+      const data = await response.json();
+      if (!response.ok || !data.ok) throw new Error(data.error || 'Email could not be sent.');
+      setEmailStatus(`Sent to ${data.sent} opted-in members${data.failed ? `; ${data.failed} failed` : ''}.`);
+      setEmailSubject('');
+      setEmailMessage('');
+    } catch (err) {
+      setEmailStatus(err.message);
+    } finally {
+      setEmailSending(false);
+    }
+  }
+
   return <section className="admin-dashboard">
-    <div className="admin-heading"><div><span className="empty-kicker"><span className="empty-kicker-dot"/> ADMIN</span><h1>Hacki mentions</h1><p>Slack mentions from the last 7 days, with Hacki’s clarification replies when it asked for more context.</p></div><button className="admin-refresh-btn" onClick={() => { setLoading(true); setError(''); setRefreshKey(value => value + 1); }}>Refresh</button></div>
+    <div className="admin-heading"><div><span className="empty-kicker"><span className="empty-kicker-dot"/> ADMIN</span><h1>Hacki admin</h1><p>Review mentions and send updates to members who opted in.</p></div><button className="admin-refresh-btn" onClick={() => { setLoading(true); setError(''); setRefreshKey(value => value + 1); }}>Refresh</button></div>
+    <section className="admin-email-panel"><div className="admin-section-heading"><div><h2>Email members</h2><p>Only members who opted in will receive this message.</p></div><span>{emailInfo ? `${emailInfo.recipients} opted in` : 'Loading recipients…'}</span></div>
+      {emailInfo && <div className="admin-email-sender">From: {emailInfo.sender}</div>}
+      {emailInfo && !emailInfo.configured && <div className="admin-email-notice">Sending is disabled until Gmail SMTP credentials are added to Nest.</div>}
+      <form className="admin-email-form" onSubmit={sendCustomEmail}>
+        <input value={emailSubject} onChange={event => setEmailSubject(event.target.value)} maxLength={180} placeholder="Email subject" aria-label="Email subject" required />
+        <textarea value={emailMessage} onChange={event => setEmailMessage(event.target.value)} maxLength={10000} placeholder="Write your email…" aria-label="Email message" required />
+        <button className="admin-refresh-btn" type="submit" disabled={emailSending || !emailInfo?.configured || !emailInfo?.recipients || emailSubject.trim().length < 3 || !emailMessage.trim()}>{emailSending ? 'Sending…' : `Send to ${emailInfo?.recipients || 0} opted-in members`}</button>
+      </form>
+      {emailStatus && <div className="admin-email-status">{emailStatus}</div>}
+    </section>
+    <div className="admin-section-heading admin-mentions-heading"><div><h2>Slack mentions</h2><p>Last 7 days, including Hacki clarification replies.</p></div></div>
     {loading ? <div className="admin-empty">Loading mentions…</div> : error ? <div className="admin-empty admin-error">{error}</div> : mentions.length === 0 ? <div className="admin-empty">No mentions recorded in the last 7 days yet. New mentions will appear here.</div> : <div className="admin-mention-list">{mentions.map(mention => <article className="admin-mention-card" key={mention.event_key}>
       <div className="admin-mention-meta"><a href={mention.slackUrl} target="_blank" rel="noopener noreferrer">#{mention.channel_name || mention.channel_id}</a><time dateTime={new Date(mention.occurred_at * 1000).toISOString()}>{new Date(mention.occurred_at * 1000).toLocaleString()}</time></div>
       <p className="admin-mention-text">{mention.message_text}</p>
@@ -185,6 +229,8 @@ function TypingIndicator() {
 }
 
 function AuthModal() {
+  const [emailUpdates, setEmailUpdates] = useState(false);
+  const loginUrl = emailUpdates ? '/auth/login?email_updates=1' : '/auth/login';
   return <div className="auth-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="auth-title">
     <div className="auth-modal-card">
       <div className="auth-modal-header">
@@ -197,7 +243,8 @@ function AuthModal() {
         <div className="auth-feature-row"><img className="auth-feature-icon" src="/icons/rocket.png" alt=""/><div className="auth-feature-info"><strong>Hack Club knowledge</strong><span>Get help with YSWS programs, tools, community opportunities, and more.</span></div></div>
         <div className="auth-feature-row"><img className="auth-feature-icon" src="/icons/lock.png" alt=""/><div className="auth-feature-info"><strong>Your saved conversations</strong><span>Your chat history syncs to your Hack Club account across devices.</span></div></div>
       </div>
-      <div className="auth-modal-actions"><a href="/auth/login" className="auth-modal-login-btn"><img src="/hackclub-flag.svg" alt="" className="auth-modal-btn-flag"/><span>Sign in with Hack Club</span></a></div>
+      <label className="email-updates-consent"><input type="checkbox" checked={emailUpdates} onChange={event => setEmailUpdates(event.target.checked)}/><span>Email me occasional Hacki updates and announcements. Optional; I can unsubscribe anytime.</span></label>
+      <div className="auth-modal-actions"><a href={loginUrl} className="auth-modal-login-btn"><img src="/hackclub-flag.svg" alt="" className="auth-modal-btn-flag"/><span>Sign in with Hack Club</span></a></div>
       <div className="auth-modal-footer">Powered by <a href="https://hackclub.com" target="_blank" rel="noopener noreferrer">Hack Club</a></div>
     </div>
   </div>;
@@ -272,6 +319,8 @@ export default function App() {
   const [pendingChatId, setPendingChatId] = useState(null);
   const [opportunitiesOpen, setOpportunitiesOpen] = useState(false);
   const [adminOpen, setAdminOpen] = useState(false);
+  const [emailPreferenceBusy, setEmailPreferenceBusy] = useState(false);
+  const [emailPreferenceMessage, setEmailPreferenceMessage] = useState('');
   const [sidebarOpen, setSidebarOpen] = useState(() => typeof window !== 'undefined' && window.innerWidth > 768);
   const textareaRef = useRef(null);
   const conversationRef = useRef(null);
@@ -430,6 +479,25 @@ export default function App() {
     setActiveId(null);
   }
 
+  async function updateEmailPreference(event) {
+    const optIn = event.target.checked;
+    setEmailPreferenceBusy(true);
+    setEmailPreferenceMessage('');
+    try {
+      const response = await fetch('/api/account/email-preferences', {
+        method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ optIn })
+      });
+      const data = await response.json();
+      if (!response.ok || !data.ok) throw new Error(data.error || 'Could not save this setting.');
+      setUser(current => current ? { ...current, emailMarketingOptIn: data.emailMarketingOptIn } : current);
+    } catch (error) {
+      setEmailPreferenceMessage(error.message);
+    } finally {
+      setEmailPreferenceBusy(false);
+    }
+  }
+
   const onFreshChat = activeChat?.messages?.length === 0;
   const profileInitials = (user?.name || 'HC').slice(0, 2).toUpperCase();
 
@@ -455,7 +523,7 @@ export default function App() {
         <div className="sidebar-bottom"><div className="auth-section">
           {!user ? <a href="/auth/login" className="hc-auth-btn"><img src="/hackclub-flag.svg" alt="" className="auth-btn-icon"/><span>Sign in with Hack Club</span></a> : <div className="user-profile-card">
             <div className="user-avatar">{user.avatar ? <img src={user.avatar} alt=""/> : profileInitials}</div>
-            <div className="user-details"><div className="user-name">{user.name || 'Hack Clubber'}</div><div className="user-sub">{user.email || 'Hack Club Member'}</div>{user.slackId && <div className="user-slack-tag"><span className="slack-dot"/><span>Slack linked</span></div>}</div>
+            <div className="user-details"><div className="user-name">{user.name || 'Hack Clubber'}</div><div className="user-sub">{user.email || 'Hack Club Member'}</div>{user.slackId && <div className="user-slack-tag"><span className="slack-dot"/><span>Slack linked</span></div>}<label className="user-email-preference"><input type="checkbox" checked={Boolean(user.emailMarketingOptIn)} disabled={emailPreferenceBusy} onChange={updateEmailPreference}/><span>Email updates</span></label>{emailPreferenceMessage && <span className="user-email-preference-error">{emailPreferenceMessage}</span>}</div>
             <a href="/auth/logout" className="user-logout-btn" title="Sign out" aria-label="Sign out" onClick={logout}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg></a>
           </div>}
         </div></div>

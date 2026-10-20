@@ -1,12 +1,18 @@
 import express from 'express';
 import crypto from 'node:crypto';
 import { config } from '../config.js';
+import { sendEmail, isEmailConfigured } from '../integrations/email.js';
 import {
   upsertUser,
   createSession,
   getSession,
   deleteSession,
-  pruneExpiredSessions
+  pruneExpiredSessions,
+  getUserById,
+  claimWelcomeEmail,
+  markWelcomeEmailSent,
+  releaseWelcomeEmailClaim,
+  setEmailMarketingOptIn
 } from '../db/database.js';
 
 export const authRouter = express.Router();
@@ -29,6 +35,16 @@ async function getSlackAvatar(slackId) {
     console.warn('[Auth] Could not load Slack profile avatar:', error.message);
     return null;
   }
+}
+
+function makeUnsubscribeToken(userId) {
+  return crypto.createHmac('sha256', config.authClientSecret).update(userId).digest('hex');
+}
+
+function validUnsubscribeRequest(userId, supplied) {
+  const expectedBytes = Buffer.from(makeUnsubscribeToken(userId), 'hex');
+  const suppliedBytes = Buffer.from(supplied, 'hex');
+  return Boolean(userId && suppliedBytes.length === expectedBytes.length && crypto.timingSafeEqual(suppliedBytes, expectedBytes));
 }
 
 // Prune stale DB sessions once at startup
@@ -80,7 +96,10 @@ authRouter.get('/login', (req, res) => {
   }
 
   const state = crypto.randomBytes(24).toString('hex');
-  oauthStates.set(state, Date.now() + 10 * 60 * 1000);
+  oauthStates.set(state, {
+    expiresAt: Date.now() + 10 * 60 * 1000,
+    emailMarketingOptIn: req.query.email_updates === '1'
+  });
 
   const params = new URLSearchParams({
     client_id: config.authClientId,
@@ -98,8 +117,9 @@ authRouter.get('/login', (req, res) => {
 // ---------------------------------------------------------------------------
 authRouter.get('/callback', async (req, res) => {
   const { code, state } = req.query;
-  const expiry = oauthStates.get(state);
+  const stateData = oauthStates.get(state);
   oauthStates.delete(state);
+  const expiry = typeof stateData === 'number' ? stateData : stateData?.expiresAt;
 
   if (!code || !expiry || expiry < Date.now()) {
     return res.status(400).send('Login session expired or invalid. Please try again.');
@@ -147,17 +167,30 @@ authRouter.get('/callback', async (req, res) => {
       slackId,
       slackUrl: slackId ? `https://hackclub.enterprise.slack.com/team/${slackId}` : null,
       avatar,
+      emailMarketingOptIn: Boolean(stateData?.emailMarketingOptIn),
       lastLoginAt: new Date().toISOString(),
       slackChannelStatus: 'not_requested',
       slackChannelJoined: false
     };
 
     // Persist user to SQLite (upsert)
+    user.welcomeEmailEligible = !getUserById(id);
     upsertUser(user);
 
     // Create session in SQLite
     const sessionId = crypto.randomBytes(32).toString('hex');
     createSession(sessionId, user);
+
+    if (email && isEmailConfigured() && claimWelcomeEmail(id)) {
+      sendEmail({
+        to: email,
+        subject: 'Welcome to Hacki',
+        text: `Hi ${name},\n\nWelcome to Hacki! You can now chat with Hacki and explore Hack Club resources at ${config.publicBaseUrl}.\n\nThis is a one-time account welcome email.`
+      }).then(() => markWelcomeEmailSent(id)).catch(error => {
+        releaseWelcomeEmailClaim(id);
+        console.warn('[Auth] Could not send welcome email:', error.message);
+      });
+    }
 
     res.setHeader('Set-Cookie', [
       `hacki_session=${sessionId}; HttpOnly; Path=/; SameSite=Lax; Max-Age=2592000`,
@@ -198,3 +231,19 @@ function logout(req, res) {
 
 authRouter.get('/logout', logout);
 authRouter.post('/logout', logout);
+
+authRouter.get('/unsubscribe', (req, res) => {
+  const userId = String(req.query.user || '');
+  const supplied = String(req.query.token || '');
+  if (!validUnsubscribeRequest(userId, supplied)) return res.status(400).send('This unsubscribe link is invalid.');
+  const escapeHtml = value => value.replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
+  res.send(`<!doctype html><html><head><meta charset="utf-8"><title>Unsubscribe from Hacki</title></head><body style="font-family:system-ui;max-width:560px;margin:12vh auto;padding:24px;color:#242424"><h1>Stop Hacki email updates?</h1><p>Confirm to stop optional update emails. Account-related messages may still be sent.</p><form method="post" action="/auth/unsubscribe"><input type="hidden" name="user" value="${escapeHtml(userId)}"><input type="hidden" name="token" value="${escapeHtml(supplied)}"><button style="padding:10px 16px" type="submit">Unsubscribe</button></form></body></html>`);
+});
+
+authRouter.post('/unsubscribe', express.urlencoded({ extended: false }), (req, res) => {
+  const userId = String(req.body?.user || '');
+  const supplied = String(req.body?.token || '');
+  if (!validUnsubscribeRequest(userId, supplied)) return res.status(400).send('This unsubscribe link is invalid.');
+  setEmailMarketingOptIn(userId, false);
+  res.send('<!doctype html><html><head><meta charset="utf-8"><title>Email updates stopped</title></head><body style="font-family:system-ui;max-width:560px;margin:12vh auto;padding:24px;color:#242424"><h1>You are unsubscribed</h1><p>You will no longer receive Hacki update emails at this address. Account-related messages may still be sent.</p><p><a href="/">Back to Hacki</a></p></body></html>');
+});
