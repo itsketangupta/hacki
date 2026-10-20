@@ -17,3 +17,6 @@ npm-debug.log*
 /data/announcements.json
 /data/announcements.checked-at
 /data/slack_channels_cache.json
+/data/team.json
+/data/ysws.json
+/data/official_knowledge.json
