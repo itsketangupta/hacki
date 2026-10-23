@@ -2,7 +2,7 @@
 
 Hacki is an AI assistant for the Hack Club community. It answers questions about Hack Club programs, YSWS opportunities, team members, tools, and Slack announcements, with source links and data snapshot dates where available.
 
-The web client uses **React** and **Vite**. An **Express** server provides the authenticated API, Hack Club sign-in, SQLite chat storage, data collectors, and optional Slack bot. AI and Slack credentials stay on the server in environment variables; the browser never receives those secrets.
+The web client uses **React** and **Vite**. An **Express** server provides Hack Club sign-in, SQLite chat storage, data collectors, and optional Slack bot. Answer generation runs on a local Ollama model; Hacki does not send prompts to a hosted answer API.
 
 ## Features
 
@@ -31,9 +31,7 @@ The web client uses **React** and **Vite**. An **Express** server provides the a
 - Persistent Slack reminders through `remind me in 20m to ...` or `remind me every 1h to ...`.
 - Private per-user Slack memories through `remember: ...`, `what do you remember?`, and `forget memories` in DMs.
 - Per-user custom DM instructions through `instructions: ...` and `clear instructions`.
-- Optional per-user model keys from App Home for OpenAI, OpenRouter, Groq, Together AI, DeepSeek, Google Gemini, or Mistral; keys are encrypted in SQLite and used without the shared-key fallback.
 - Per-user remote Streamable HTTP MCP servers configured in App Home; bearer tokens are encrypted, tools are loaded for that Slack user's requests, and data erasure removes the server configuration.
-- Optional OpenAI-compatible backup model when the primary AI request fails.
 - Slack collection from configured announcement, bulletin, YSWS, opportunity, and bounty channel families; bulletin and opportunity channels are processed first, and sync pauses cleanly on rate limits.
 - A linked Slack user is invited to `#hacki` only after sending a website chat, DMing Hacki, or mentioning Hacki. Signing in alone does not invite them; the bot does not send a welcome DM or channel post.
 
@@ -66,15 +64,17 @@ React does not hide API endpoint URLs. Access control belongs in the server, and
 
 - Node.js 22.19 or newer (required by the E2B SDK)
 - npm
-- Credentials for whichever optional integrations you enable (Hack Club AI Gateway, Slack, OAuth)
+- Ollama installed on the server and a downloaded model (default: `qwen3:8b`)
+- Credentials for whichever optional integrations you enable (Slack, OAuth)
 
 ## Local development
 
 1. Install packages: `npm ci`.
-2. Create `.env` from `.env.example` and add the credentials you need.
-3. Set the local OAuth callback to `http://localhost:3000/auth/callback`.
-4. Run `npm run dev` and open [http://localhost:5173](http://localhost:5173). Vite proxies `/api` and `/auth` to Express on port 3000.
-5. Run `npm run sync` to manually refresh the team and YSWS caches.
+2. Install Ollama and download the default model: `ollama pull qwen3:8b`.
+3. Create `.env` from `.env.example` and add credentials for the integrations you use.
+4. Set the local OAuth callback to `http://localhost:3000/auth/callback`.
+5. Run `npm run dev` and open [http://localhost:5173](http://localhost:5173). Vite proxies `/api` and `/auth` to Express on port 3000.
+6. Run `npm run sync` to manually refresh the team and YSWS caches.
 
 ## Production
 
@@ -85,14 +85,11 @@ Run `npm start` to build the client and start Express. On Hack Club Nest, instal
 | Variable | Purpose |
 | --- | --- |
 | `PORT` | Express port (default `3000`) |
-| `AI_API_KEY` | Server-side Hack Club AI Gateway key |
-| `AI_BASE_URL` | AI Gateway base URL |
-| `AI_MODEL` | Model identifier sent to the gateway |
-| `AI_FALLBACK_API_KEY` / `AI_FALLBACK_BASE_URL` / `AI_FALLBACK_MODEL` | Optional OpenAI-compatible backup model used when the primary request fails |
+| `OLLAMA_MODEL` | Locally installed Ollama model (default `qwen3:8b`) |
 | `EXA_API_KEY` | Optional Exa key for live web search and public page fetching |
 | `BROWSER_CDP_URL` | Optional remote headful Chromium CDP endpoint for JavaScript-rendered pages |
 | `GITHUB_TOKEN`, `GITHUB_ALLOWED_OWNERS`, `GITHUB_ALLOWED_SLACK_USERS` | Optional GitHub file edits; both allowlists and a fine-grained Contents read/write token are required; edits require Slack confirmation |
-| `SLACK_USER_SECRETS_ENCRYPTION_KEY` | Optional base64 32-byte key used to encrypt per-user model API keys and MCP bearer tokens stored from Slack App Home |
+| `SLACK_USER_SECRETS_ENCRYPTION_KEY` | Optional base64 32-byte key used to encrypt MCP bearer tokens stored from Slack App Home |
 | `E2B_API_KEY` | Optional E2B API key for isolated per-thread code execution |
 | `SMTP_URL` / `MAIL_FROM` | Optional SMTP sender. Welcome emails send once to new accounts; admin broadcasts include only opted-in members. |
 | `HACKCLUB_CLIENT_ID` / `HACKCLUB_CLIENT_SECRET` | Hack Club OAuth credentials |
@@ -106,7 +103,7 @@ Run `npm start` to build the client and start Express. On Hack Club Nest, instal
 
 Headful browser access is optional. Set `BROWSER_CDP_URL` to a trusted Chromium DevTools Protocol WebSocket endpoint from a browser hosting service or your own secured browser host. Hacki opens a fresh isolated context per request, allows public HTTPS pages only, and sends requested URLs and page content through that service. Without it, Exa can still search and fetch public pages when `EXA_API_KEY` is configured.
 
-Per-user model keys and MCP servers are optional App Home features enabled by `SLACK_USER_SECRETS_ENCRYPTION_KEY`. Generate it with `openssl rand -base64 32`, keep it stable across restarts, and back it up separately from the SQLite database. `SLACK_MODEL_KEYS_ENCRYPTION_KEY` remains a legacy alias. Users choose a model provider, model ID, and key in App Home. The selected provider must support OpenAI-compatible chat completions and tool calls. When configured, that user's Slack model calls go only to their selected provider; Hacki does not fall back to its shared model key. Other integrations such as Exa can still receive their relevant queries. The model key and MCP bearer token are visible in the private App Home modal while entered.
+The local Ollama model handles answer generation. `OLLAMA_MODEL` selects a model already installed on the same server. Optional MCP servers are enabled by `SLACK_USER_SECRETS_ENCRYPTION_KEY`.
 
 Users can add up to five remote MCP Streamable HTTP endpoints from App Home, each with an optional bearer token. Hacki checks that an endpoint is HTTPS and resolves to public IP addresses, tests it by listing tools, then refreshes its tool list for that user's Slack requests. Tool calls send the user's request and arguments to that MCP server; use only servers you trust. OAuth-based MCP setup and stdio-only MCP servers are not supported. No additional Slack scopes are required.
 
@@ -161,7 +158,7 @@ Never commit `.env` or put credentials in client code. `.env` is excluded by `.g
 - `client/src/App.jsx` — React chat, auth, history, and theme UI
 - `client/src/style.css` — Responsive application styling
 - `client/public/` — App logos and Hack Club flag
-- `src/ai/hackiAgent.js` — Retrieval, answer rules, and AI Gateway client
+- `src/ai/hackiAgent.js` — Retrieval, answer rules, and local model client
 - `src/auth/` — Hack Club OAuth and sessions
 - `src/db/database.js` — SQLite schema and chat persistence
 - `src/routes/api.js` — Express API routes

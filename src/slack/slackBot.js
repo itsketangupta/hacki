@@ -12,9 +12,7 @@ import { renderMermaid } from '../ai/mermaidRenderer.js';
 import { getPublicGitHubRepository, getPublicGitHubIssues, getPublicGitHubFile, commitGitHubFileEdit, canEditGitHubFiles } from '../scrapers/github.js';
 import { sendEmail, isEmailConfigured } from '../integrations/email.js';
 import { fetchWebPage } from '../scrapers/webSearch.js';
-import {
-  SLACK_MODEL_PROVIDERS, canEncryptUserModelKeys, saveUserModelOverride, getUserModelOverrideSummary, clearUserModelOverride
-} from '../ai/slackModelOverride.js';
+import { canEncryptUserModelKeys } from '../ai/slackModelOverride.js';
 import { listSlackMcpServerSummaries, saveUserMcpServer, removeUserMcpServer } from '../ai/mcpServers.js';
 import {
   addSlackMemory, getSlackMemories, deleteSlackMemories,
@@ -770,18 +768,7 @@ async function deliverDueReminders(client) {
 
 function buildAppHomeView(userId) {
   const instructions = getSlackInstructions(userId);
-  const modelOverride = getUserModelOverrideSummary(userId);
   const mcpServers = listSlackMcpServerSummaries(userId);
-  const modelBlocks = canEncryptUserModelKeys() ? [
-    { type: 'section', text: { type: 'mrkdwn', text: modelOverride ? `*Your model key*\n${modelOverride.provider} · ${modelOverride.model}\nYour key is stored encrypted and used only for your Slack requests.` : '_Use an API key from a supported provider for your Slack requests._' } },
-    { type: 'actions', elements: [
-      { type: 'button', action_id: 'hacki_home_model_override', text: { type: 'plain_text', text: modelOverride ? 'Update model key' : 'Add model key' }, value: 'edit' },
-      ...(modelOverride ? [{ type: 'button', action_id: 'hacki_home_clear_model_override', text: { type: 'plain_text', text: 'Remove model key' }, style: 'danger', value: 'clear' }] : [])
-    ] }
-  ] : modelOverride ? [
-    { type: 'context', elements: [{ type: 'mrkdwn', text: 'Your saved model key cannot be used until the operator restores SLACK_USER_SECRETS_ENCRYPTION_KEY (or its legacy alias).' }] },
-    { type: 'actions', elements: [{ type: 'button', action_id: 'hacki_home_clear_model_override', text: { type: 'plain_text', text: 'Remove saved model key' }, style: 'danger', value: 'clear' }] }
-  ] : [{ type: 'context', elements: [{ type: 'mrkdwn', text: 'Encrypted per-user settings are disabled until SLACK_USER_SECRETS_ENCRYPTION_KEY is configured by the operator.' }] }];
   const mcpBlocks = canEncryptUserModelKeys() ? [
     { type: 'section', text: { type: 'mrkdwn', text: `*Your MCP servers*\n${mcpServers.length ? mcpServers.map(server => `• *${server.name}* — ${server.endpoint}`).join('\n') : '_No remote MCP servers configured._'}\nMCP tools and results are sent to each server you configure.` } },
     ...mcpServers.map(server => ({ type: 'actions', elements: [{
@@ -795,8 +782,7 @@ function buildAppHomeView(userId) {
     type: 'home',
     blocks: [
       { type: 'header', text: { type: 'plain_text', text: 'Hacki settings' } },
-      { type: 'section', text: { type: 'mrkdwn', text: 'Hacki can answer Hack Club questions, search web and channel sources, use your own model key, run code in an E2B sandbox, render Mermaid diagrams, set reminders, and prepare confirmed channel, post, poll, canvas, and email actions.' } },
-      ...modelBlocks,
+      { type: 'section', text: { type: 'mrkdwn', text: 'Hacki runs on a local AI model and can answer Hack Club questions, search web and channel sources, run code in an E2B sandbox, render Mermaid diagrams, set reminders, and prepare confirmed channel, post, poll, canvas, and email actions.' } },
       ...mcpBlocks,
       { type: 'section', text: { type: 'mrkdwn', text: instructions ? `*Your custom DM instructions*\n${instructions}` : '_You have no custom DM instructions yet._' } },
       { type: 'actions', elements: [
@@ -857,70 +843,6 @@ export async function initSlackBot() {
       } catch (err) {
         console.warn(`[SlackBot] Could not publish App Home for ${event.user}: ${err.data?.error || err.message}`);
       }
-    });
-
-    botApp.action('hacki_home_model_override', async ({ ack, body, client }) => {
-      await ack();
-      const current = getUserModelOverrideSummary(body.user.id);
-      const providers = Object.entries(SLACK_MODEL_PROVIDERS).map(([value, provider]) => ({
-        text: { type: 'plain_text', text: provider.name }, value
-      }));
-      const currentProvider = Object.entries(SLACK_MODEL_PROVIDERS).find(([key, provider]) => key === current?.provider || provider.name === current?.provider)?.[0] || 'openai';
-      try {
-        await client.views.open({
-          trigger_id: body.trigger_id,
-          view: {
-            type: 'modal', callback_id: 'hacki_save_model_override',
-            title: { type: 'plain_text', text: 'Your model key' },
-            submit: { type: 'plain_text', text: 'Save key' },
-            close: { type: 'plain_text', text: 'Cancel' },
-            blocks: [
-              { type: 'input', block_id: 'provider_block', label: { type: 'plain_text', text: 'Provider' }, element: {
-                type: 'static_select', action_id: 'provider_input', options: providers,
-                initial_option: providers.find(option => option.value === currentProvider)
-              } },
-              { type: 'input', block_id: 'model_block', label: { type: 'plain_text', text: 'Model ID' }, element: {
-                type: 'plain_text_input', action_id: 'model_input', max_length: 180,
-                initial_value: current?.model || 'gpt-4o-mini'
-              } },
-              { type: 'input', block_id: 'api_key_block', label: { type: 'plain_text', text: 'Provider API key' }, hint: { type: 'plain_text', text: 'Sent only to the provider you select. Hacki does not fall back to its shared key when this override is set.' }, element: {
-                type: 'plain_text_input', action_id: 'api_key_input', max_length: 500,
-                placeholder: { type: 'plain_text', text: 'Paste your API key' }
-              } }
-            ]
-          }
-        });
-      } catch (err) {
-        console.warn(`[SlackBot] Could not open model settings: ${err.data?.error || err.message}`);
-      }
-    });
-
-    botApp.view('hacki_save_model_override', async ({ ack, body, view, client }) => {
-      const provider = view.state.values.provider_block.provider_input.selected_option?.value;
-      const model = view.state.values.model_block.model_input.value || '';
-      const apiKey = view.state.values.api_key_block.api_key_input.value || '';
-      if (!provider || !model.trim() || !apiKey.trim()) {
-        await ack({ response_action: 'errors', errors: {
-          ...(!provider ? { provider_block: 'Choose a provider.' } : {}),
-          ...(!model.trim() ? { model_block: 'Enter a model ID.' } : {}),
-          ...(!apiKey.trim() ? { api_key_block: 'Enter an API key.' } : {})
-        } });
-        return;
-      }
-      try {
-        saveUserModelOverride(body.user.id, { provider, model, apiKey });
-        await ack();
-        client.views.publish({ user_id: body.user.id, view: buildAppHomeView(body.user.id) })
-          .catch(err => console.warn(`[SlackBot] Could not refresh App Home: ${err.data?.error || err.message}`));
-      } catch (err) {
-        await ack({ response_action: 'errors', errors: { api_key_block: err.message } });
-      }
-    });
-
-    botApp.action('hacki_home_clear_model_override', async ({ ack, body, client }) => {
-      await ack();
-      clearUserModelOverride(body.user.id);
-      await client.views.publish({ user_id: body.user.id, view: buildAppHomeView(body.user.id) });
     });
 
     botApp.action('hacki_home_mcp_add', async ({ ack, body, client }) => {

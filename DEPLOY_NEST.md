@@ -51,19 +51,15 @@ cp .env.example .env
 nano .env
 ```
 
-Fill in your actual API keys and tokens in `.env`:
+Configure the local model and credentials for integrations you enable in `.env`:
 ```env
 PORT=3000
 
-# Hack Club AI Gateway
-AI_API_KEY=sk-hc-v1-your-ai-hackclub-key
-AI_BASE_URL=https://ai.hackclub.com/proxy/v1
-AI_MODEL=openai/gpt-4o-mini
-# Optional fallback model, live web search/page fetch, code sandbox, and email
-# AI_FALLBACK_API_KEY=
-# AI_FALLBACK_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai
-# AI_FALLBACK_MODEL=gemini-2.5-flash
-# Optional encryption for per-user model keys and MCP bearer tokens in Slack App Home
+# Install Ollama on this server and download the model before starting Hacki:
+# ollama pull qwen3:8b
+OLLAMA_MODEL=qwen3:8b
+# Optional live web search/page fetch, code sandbox, and email
+# Optional encryption for MCP bearer tokens in Slack App Home
 # Generate separately with: openssl rand -base64 32
 # SLACK_USER_SECRETS_ENCRYPTION_KEY=
 # EXA_API_KEY=
@@ -189,7 +185,7 @@ Slack reply streaming uses `chat:write` with Socket Mode and starts each assista
 
 The browser service receives requested page URLs and returns rendered page text. Hacki creates a fresh browser context per request and blocks non-HTTPS and private-network requests. Browser rendering requires no Slack scopes.
 
-To enable per-user model keys and remote MCP servers from App Home, set `SLACK_USER_SECRETS_ENCRYPTION_KEY` to a base64-encoded 32-byte secret (`openssl rand -base64 32`). Back it up and keep it unchanged: rotating or losing it makes saved provider keys and MCP bearer tokens undecryptable. `SLACK_MODEL_KEYS_ENCRYPTION_KEY` remains a legacy alias. Users choose among the supported model providers; their Slack model calls use only that provider and do not fall back to Hacki's shared AI key. Choose a model that supports OpenAI-compatible chat completions and tool calls. Other integrations such as Exa can still receive their relevant queries. MCP endpoints must be publicly reachable HTTPS Streamable HTTP servers and resolve to public IP addresses; OAuth and stdio servers are not supported. Tool calls send the user's prompt data and arguments to the configured MCP server. No extra Slack scopes are needed beyond the App Home and interactivity setup above.
+To enable remote MCP servers from App Home, set `SLACK_USER_SECRETS_ENCRYPTION_KEY` to a base64-encoded 32-byte secret (`openssl rand -base64 32`). Back it up and keep it unchanged: rotating or losing it makes saved MCP bearer tokens undecryptable. MCP endpoints must be publicly reachable HTTPS Streamable HTTP servers and resolve to public IP addresses; OAuth and stdio servers are not supported. Tool calls send the user's prompt data and arguments to the configured MCP server. No extra Slack scopes are needed beyond the App Home and interactivity setup above.
 
 Slack sends this event only for channels Hacki is already in. Hacki checks the event's inviter and leaves when that inviter is a bot/app. The bot join event itself is ignored.
 

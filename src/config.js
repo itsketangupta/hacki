@@ -14,13 +14,9 @@ export const config = {
   yswsFile: path.join(rootDir, 'data', 'ysws.json'),
   announcementsFile: path.join(rootDir, 'data', 'announcements.json'),
   
-  // Hack Club AI Gateway
-  aiApiKey: process.env.AI_API_KEY || '',
-  aiBaseUrl: (process.env.AI_BASE_URL || 'https://ai.hackclub.com/proxy/v1').replace(/\/$/, ''),
-  aiModel: process.env.AI_MODEL || 'openai/gpt-4o-mini',
-  aiFallbackApiKey: process.env.AI_FALLBACK_API_KEY || '',
-  aiFallbackBaseUrl: (process.env.AI_FALLBACK_BASE_URL || '').replace(/\/$/, ''),
-  aiFallbackModel: process.env.AI_FALLBACK_MODEL || '',
+  // Inference runs through the Ollama service on this same machine.
+  aiBaseUrl: 'http://127.0.0.1:11434/v1',
+  aiModel: process.env.OLLAMA_MODEL || 'qwen3:8b',
   slackModelKeysEncryptionKey: process.env.SLACK_MODEL_KEYS_ENCRYPTION_KEY || '',
   slackUserSecretsEncryptionKey: process.env.SLACK_USER_SECRETS_ENCRYPTION_KEY || process.env.SLACK_MODEL_KEYS_ENCRYPTION_KEY || '',
   exaApiKey: process.env.EXA_API_KEY || '',

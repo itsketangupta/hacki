@@ -5,7 +5,6 @@ import { getHiringOpportunities, getRecentAnnouncements, searchAnnouncements } f
 import { searchOfficialKnowledge } from '../scrapers/officialKnowledge.js';
 import { searchWeb } from '../scrapers/webSearch.js';
 import { getAgentToolDefinitions, executeAgentTool, serializeToolResult } from './agentTools.js';
-import { getUserModelOverride } from './slackModelOverride.js';
 import { loadSlackMcpTools } from './mcpServers.js';
 
 export const SOCIAL_MEDIA_SOURCES = [
@@ -533,7 +532,7 @@ STYLE:
 - Use Markdown and cite only URLs present in retrieved sources. Do not fabricate links or add generic promotional claims.
   - Ask one short clarifying question when the user's request is ambiguous and the answer depends on it.`;
 
-  // 3. Call Hack Club AI Gateway
+  // 3. Run inference against the local Ollama model
   try {
     const messages = [
       { role: 'system', content: systemPrompt },
@@ -547,21 +546,9 @@ STYLE:
       }
     ];
 
-    const userModelOverride = agentContext.slackUserId ? getUserModelOverride(agentContext.slackUserId) : null;
-    const providers = userModelOverride ? [{
-      name: `your ${userModelOverride.providerName} model`,
-      baseUrl: userModelOverride.baseUrl,
-      apiKey: userModelOverride.apiKey,
-      model: userModelOverride.model
-    }] : [{
-      name: 'primary', baseUrl: config.aiBaseUrl, apiKey: config.aiApiKey, model: config.aiModel
+    const providers = [{
+      name: 'local Ollama model', baseUrl: config.aiBaseUrl, apiKey: 'ollama', model: config.aiModel
     }];
-    if (!userModelOverride && config.aiFallbackApiKey && config.aiFallbackBaseUrl && config.aiFallbackModel) {
-      providers.push({
-        name: 'fallback', baseUrl: config.aiFallbackBaseUrl,
-        apiKey: config.aiFallbackApiKey, model: config.aiFallbackModel
-      });
-    }
 
     const mcpTools = agentContext.slackUserId ? await loadSlackMcpTools(agentContext.slackUserId) : null;
     const toolContext = mcpTools ? { ...agentContext, mcpTools } : agentContext;
@@ -644,7 +631,6 @@ STYLE:
           }
           const answer = typeof assistantMessage?.content === 'string' ? assistantMessage.content.trim() : '';
           if (!answer) throw new Error('provider returned an empty answer');
-          if (provider.name === 'fallback') console.warn('[HackiAgent] Primary model failed; fallback model answered.');
           const streamed = agentContext.onStreamComplete
             ? await agentContext.onStreamComplete(sources).catch(err => {
               console.warn(`[HackiAgent] Could not finish Slack response stream: ${err.message}`);
@@ -674,9 +660,9 @@ STYLE:
 
     throw lastError || new Error('No AI providers are configured');
   } catch (error) {
-    console.error(`[HackiAgent] AI Gateway call failed: ${error.message}. Returning an uncertainty-safe response.`);
+    console.error(`[HackiAgent] Local model call failed: ${error.message}. Returning an uncertainty-safe response.`);
     return {
-      answer: `I can’t verify an answer right now because Hacki’s answer service is unavailable. I don’t want to guess. Please try again shortly${sources.length ? ', or open one of the linked sources below' : ''}.`,
+      answer: `I can’t answer right now because Hacki’s local Ollama model is unavailable. Please check that Ollama is running and that the “${config.aiModel}” model is installed, then try again${sources.length ? ' or open one of the linked sources below' : ''}.`,
       sources,
       suggestedQueries: []
     };
@@ -741,7 +727,6 @@ async function buildRAGContext(query) {
 
   if (isFreeToolsQuery) {
     detectedCategory = 'tools';
-    sources.push({ title: 'Hack Club AI Gateway', url: 'https://ai.hackclub.com', type: 'tool' });
     sources.push({ title: 'Hack Club Nest Server Hosting', url: 'https://hackclub.app', type: 'tool' });
     sources.push({ title: 'Hack Club Sprig Game Engine', url: 'https://sprig.hackclub.com', type: 'tool' });
     sources.push({ title: 'Hack Club Blot Art Plotter', url: 'https://blot.hackclub.com', type: 'tool' });
