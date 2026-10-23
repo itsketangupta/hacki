@@ -64,13 +64,13 @@ React does not hide API endpoint URLs. Access control belongs in the server, and
 
 - Node.js 22.19 or newer (required by the E2B SDK)
 - npm
-- Ollama installed on the server and a downloaded model (default: `qwen3:8b`)
+- Ollama installed on the server and a downloaded model (default: `qwen3:0.6b`)
 - Credentials for whichever optional integrations you enable (Slack, OAuth)
 
 ## Local development
 
 1. Install packages: `npm ci`.
-2. Install Ollama and download the default model: `ollama pull qwen3:8b`.
+2. Install Ollama and download the default model: `ollama pull qwen3:0.6b`.
 3. Create `.env` from `.env.example` and add credentials for the integrations you use.
 4. Set the local OAuth callback to `http://localhost:3000/auth/callback`.
 5. Run `npm run dev` and open [http://localhost:5173](http://localhost:5173). Vite proxies `/api` and `/auth` to Express on port 3000.
@@ -85,7 +85,7 @@ Run `npm start` to build the client and start Express. On Hack Club Nest, instal
 | Variable | Purpose |
 | --- | --- |
 | `PORT` | Express port (default `3000`) |
-| `OLLAMA_MODEL` | Locally installed Ollama model (default `qwen3:8b`) |
+| `OLLAMA_MODEL` | Locally installed Ollama model (default `qwen3:0.6b`) |
 | `EXA_API_KEY` | Optional Exa key for live web search and public page fetching |
 | `BROWSER_CDP_URL` | Optional remote headful Chromium CDP endpoint for JavaScript-rendered pages |
 | `GITHUB_TOKEN`, `GITHUB_ALLOWED_OWNERS`, `GITHUB_ALLOWED_SLACK_USERS` | Optional GitHub file edits; both allowlists and a fine-grained Contents read/write token are required; edits require Slack confirmation |

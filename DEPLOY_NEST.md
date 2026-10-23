@@ -56,8 +56,8 @@ Configure the local model and credentials for integrations you enable in `.env`:
 PORT=3000
 
 # Install Ollama on this server and download the model before starting Hacki:
-# ollama pull qwen3:8b
-OLLAMA_MODEL=qwen3:8b
+# ollama pull qwen3:0.6b
+OLLAMA_MODEL=qwen3:0.6b
 # Optional live web search/page fetch, code sandbox, and email
 # Optional encryption for MCP bearer tokens in Slack App Home
 # Generate separately with: openssl rand -base64 32

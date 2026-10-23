@@ -16,7 +16,7 @@ export const config = {
   
   // Inference runs through the Ollama service on this same machine.
   aiBaseUrl: 'http://127.0.0.1:11434/v1',
-  aiModel: process.env.OLLAMA_MODEL || 'qwen3:8b',
+  aiModel: process.env.OLLAMA_MODEL || 'qwen3:0.6b',
   slackModelKeysEncryptionKey: process.env.SLACK_MODEL_KEYS_ENCRYPTION_KEY || '',
   slackUserSecretsEncryptionKey: process.env.SLACK_USER_SECRETS_ENCRYPTION_KEY || process.env.SLACK_MODEL_KEYS_ENCRYPTION_KEY || '',
   exaApiKey: process.env.EXA_API_KEY || '',
