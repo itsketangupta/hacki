@@ -409,7 +409,12 @@ export default function App() {
         setUser(null);
         return;
       }
-      const data = await response.json();
+      const responseText = await response.text();
+      let data;
+      try { data = JSON.parse(responseText); } catch {
+        const detail = responseText.replace(/\s+/g, ' ').trim().slice(0, 180);
+        throw new Error(response.ok ? 'The server returned an unreadable response.' : `Server error (${response.status})${detail ? `: ${detail}` : '.'}`);
+      }
       if (!response.ok || !data.ok) throw new Error(data.error || 'Something went wrong.');
       updateChat(chatId, chat => ({ ...chat, title, messages: [...chat.messages, { id: `${Date.now()}-assistant`, dbId: data.answerMessageId, role: 'assistant', text: data.answer, sources: data.sources || [], suggestions: data.suggestedQueries || [], animate: true }] }));
     } catch (error) {
