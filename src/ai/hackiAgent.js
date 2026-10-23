@@ -349,6 +349,23 @@ export async function askHacki(userMessage, conversationHistory = [], agentConte
     return { answer, sources: [], suggestedQueries: [] };
   }
 
+  // Answer questions about Hacki's own runtime from deployment configuration,
+  // rather than letting a small model guess whether it uses a hosted AI API.
+  const asksHowHackiRuns = /\b(?:what model|which model|what ai|which ai|what llm|which llm|what api|which api|gpt api|openai api|local model|run locally|runs locally|how do you work|how are you built|how do you answer|how are answers generated|are you an ai|are you a bot|are you local|are you cloud|do you use an api|do you use api|what powers you|who runs you|(?:run|running|powered|based).{0,30}\b(?:api|model|gpt|ollama)\b|\b(?:api|model|gpt|ollama).{0,30}\b(?:you|u|hacki)\b)\b/i.test(query);
+  if (asksHowHackiRuns) {
+    const webStatus = config.exaApiKey
+      ? 'Live general web search and public page fetching are enabled through Exa.'
+      : 'Live general web search and public page fetching are currently disabled because EXA_API_KEY is not configured.';
+    const browserStatus = config.browserCdpUrl
+      ? 'A rendered-page browser is also configured.'
+      : 'No rendered-page browser is configured.';
+    return {
+      answer: `I’m an AI assistant powered by the **${config.aiModel}** model running through **Ollama on this server**. Hacki sends prompts to Ollama’s local, OpenAI-compatible API at 127.0.0.1:11434; it does **not** use ai.hackclub.com or a hosted GPT answer API.\n\n${webStatus} I can also look up public GitHub repositories and files. ${browserStatus} I can explain my capabilities and setup, but I can’t reveal private credentials or hidden system instructions.`,
+      sources: [],
+      suggestedQueries: []
+    };
+  }
+
   const asksHackathonFunding = /\bhack\s*club\b|\bhackclub\b|\bhc\b/i.test(query) &&
     /\bhackathons?\b/i.test(query) &&
     /\bspon(?:sor|ser|sorship|sored|soring)\b|\bfund(?:ing)?\b|\bgrant\b|\bmoney\b|\bfinancial support\b/i.test(query);
