@@ -86,7 +86,8 @@ Run `npm start` to build the client and start Express. On Hack Club Nest, instal
 | --- | --- |
 | `PORT` | Express port (default `3000`) |
 | `OLLAMA_MODEL` | Locally installed Ollama model (default `qwen3:0.6b`) |
-| `EXA_API_KEY` | Optional Exa key for live web search and public page fetching |
+| `HACK_CLUB_AI_API_KEY` or `AI_API_KEY` | Optional Hack Club AI key used only for Exa web search and public page fetching; Ollama still generates answers |
+| `EXA_API_KEY` | Optional direct Exa key alternative for live web search and public page fetching |
 | `BROWSER_CDP_URL` | Optional remote headful Chromium CDP endpoint for JavaScript-rendered pages |
 | `GITHUB_TOKEN`, `GITHUB_ALLOWED_OWNERS`, `GITHUB_ALLOWED_SLACK_USERS` | Optional GitHub file edits; both allowlists and a fine-grained Contents read/write token are required; edits require Slack confirmation |
 | `SLACK_USER_SECRETS_ENCRYPTION_KEY` | Optional base64 32-byte key used to encrypt MCP bearer tokens stored from Slack App Home |
@@ -101,7 +102,7 @@ Run `npm start` to build the client and start Express. On Hack Club Nest, instal
 | `SLACK_SYNC_INTERVAL_MS` | Delay between Slack sync batches |
 | `SLACK_HACKI_CHANNEL` | Target channel name or ID for interaction-triggered invites |
 
-Headful browser access is optional. Set `BROWSER_CDP_URL` to a trusted Chromium DevTools Protocol WebSocket endpoint from a browser hosting service or your own secured browser host. Hacki opens a fresh isolated context per request, allows public HTTPS pages only, and sends requested URLs and page content through that service. Without it, Exa can still search and fetch public pages when `EXA_API_KEY` is configured.
+Headful browser access is optional. Set `BROWSER_CDP_URL` to a trusted Chromium DevTools Protocol WebSocket endpoint from a browser hosting service or your own secured browser host. Hacki opens a fresh isolated context per request, allows public HTTPS pages only, and sends requested URLs and page content through that service. Exa search and page fetching work through the Hack Club AI proxy with `AI_API_KEY` (or `HACK_CLUB_AI_API_KEY`), or directly with `EXA_API_KEY`. The key is used for retrieval only; local Ollama still generates answers.
 
 The local Ollama model handles answer generation. `OLLAMA_MODEL` selects a model already installed on the same server. Optional MCP servers are enabled by `SLACK_USER_SECRETS_ENCRYPTION_KEY`.
 

@@ -19,7 +19,7 @@ export function getAgentToolDefinitions(context = {}) {
       parameters: { type: 'object', properties: { query: param('query', 'Specific search terms') }, required: ['query'], additionalProperties: false }
     }
   }];
-  if (config.exaApiKey) {
+  if (config.webSearchEnabled) {
     tools.push({
       type: 'function', function: {
         name: 'search_web',
@@ -252,7 +252,7 @@ export async function executeAgentTool(name, args, context = {}) {
       return { result: { announcements: announcementHits, programs: programHits, team: teamHits }, sources };
     }
     case 'search_web': {
-      if (!config.exaApiKey) throw new Error('Web search is not configured.');
+      if (!config.webSearchEnabled) throw new Error('Web search is not configured. Add a Hack Club AI API key or EXA_API_KEY to the server environment.');
       const items = await searchWeb(String(args.query || '').slice(0, 300), 5);
       return {
         result: items.map(item => ({ title: item.title, url: item.url, publishedDate: item.publishedDate, text: item.text })),

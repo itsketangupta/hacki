@@ -354,9 +354,9 @@ export async function askHacki(userMessage, conversationHistory = [], agentConte
   const asksHowHackiRuns = /\b(?:llm|large language model|language model)\b/i.test(query) ||
     /\b(?:what model|which model|what ai|which ai|what api|which api|gpt api|openai api|local model|run locally|runs locally|how do you work|how are you built|how do you answer|how are answers generated|are you an ai|are you a bot|are you local|are you cloud|do you use an api|do you use api|use an? api|use api|what powers you|who runs you|(?:run|running|powered|based).{0,30}\b(?:api|model|gpt|ollama)\b|\b(?:api|model|gpt|ollama).{0,30}\b(?:you|u|hacki)\b)\b/i.test(query);
   if (asksHowHackiRuns) {
-    const webStatus = config.exaApiKey
-      ? 'Live general web search and public page fetching are enabled through Exa.'
-      : 'Live general web search and public page fetching are currently disabled because EXA_API_KEY is not configured.';
+    const webStatus = config.webSearchEnabled
+      ? `Live web search and public page fetching are enabled through Hack Club AI's Exa proxy${config.hackClubAiApiKey ? '' : ' using the configured Exa key'}.`
+      : 'Live web search and public page fetching are currently disabled because no Hack Club AI or Exa API key is configured.';
     const browserStatus = config.browserCdpUrl
       ? 'A rendered-page browser is also configured.'
       : 'No rendered-page browser is configured.';
@@ -507,7 +507,7 @@ export async function askHacki(userMessage, conversationHistory = [], agentConte
   // curated catalog and Slack sources above.
   const isHackClubQuestion = /\b(hack\s?club|hackclub|ysws|high seas|hcb|hackclub\.app|hackclub\.com)\b/i.test(query);
   let webContext = '';
-  if (config.exaApiKey && !isHackClubQuestion) {
+  if (config.webSearchEnabled && !isHackClubQuestion) {
     try {
       const webResults = await searchWeb(query, 5);
       webContext = webResults.map((item, index) => {

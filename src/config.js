@@ -17,9 +17,13 @@ export const config = {
   // Inference runs through the Ollama service on this same machine.
   aiBaseUrl: 'http://127.0.0.1:11434/v1',
   aiModel: process.env.OLLAMA_MODEL || 'qwen3:0.6b',
+  // This key is only used for Hack Club AI's Exa search/content proxy. Answer
+  // generation continues to use the local Ollama model above.
+  hackClubAiApiKey: process.env.HACK_CLUB_AI_API_KEY || process.env.AI_API_KEY || '',
   slackModelKeysEncryptionKey: process.env.SLACK_MODEL_KEYS_ENCRYPTION_KEY || '',
   slackUserSecretsEncryptionKey: process.env.SLACK_USER_SECRETS_ENCRYPTION_KEY || process.env.SLACK_MODEL_KEYS_ENCRYPTION_KEY || '',
   exaApiKey: process.env.EXA_API_KEY || '',
+  webSearchEnabled: Boolean(process.env.HACK_CLUB_AI_API_KEY || process.env.AI_API_KEY || process.env.EXA_API_KEY),
   browserCdpUrl: process.env.BROWSER_CDP_URL || '',
   githubToken: process.env.GITHUB_TOKEN || '',
   githubAllowedOwners: (process.env.GITHUB_ALLOWED_OWNERS || '').split(',').map(owner => owner.trim().toLowerCase()).filter(Boolean),
