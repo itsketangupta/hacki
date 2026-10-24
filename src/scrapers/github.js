@@ -55,7 +55,7 @@ export async function getPublicGitHubIssues(owner, repo, limit = 5) {
   }));
 }
 
-export async function getPublicGitHubFile(owner, repo, filePath) {
+export async function getPublicGitHubFile(owner, repo, filePath, ref = '') {
   if (!/^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$/.test(owner) || !/^[A-Za-z0-9_.-]{1,100}$/.test(repo)) {
     throw new Error('Use a GitHub repository in `owner/repo` format.');
   }
@@ -64,7 +64,8 @@ export async function getPublicGitHubFile(owner, repo, filePath) {
     throw new Error('Give a valid repository file path.');
   }
   const encodedPath = normalizedPath.split('/').map(encodeURIComponent).join('/');
-  const data = await githubGet(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/contents/${encodedPath}`);
+  const refQuery = ref ? `?ref=${encodeURIComponent(String(ref).slice(0, 200))}` : '';
+  const data = await githubGet(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/contents/${encodedPath}${refQuery}`);
   if (Array.isArray(data) || data.type !== 'file' || typeof data.content !== 'string') {
     throw new Error('That path is not a readable file.');
   }

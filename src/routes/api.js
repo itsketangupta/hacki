@@ -432,7 +432,7 @@ apiRouter.get('/opportunities', async (req, res) => {
         const tags = Array.isArray(item.tags) ? item.tags : [];
         const role = item.isHiring || categories.includes('hiring') || tags.includes('hiring');
         const program = item.isYSWS || categories.includes('ysws') || tags.includes('ysws');
-        const event = item.kind === 'event' || categories.includes('event');
+        const event = item.isEvent || item.kind === 'event' || categories.includes('event') || tags.includes('event');
         const opportunity = item.isOpportunity || categories.includes('opportunity') || tags.includes('opportunity');
         if (type === 'roles') return role;
         if (type === 'programs') return program || opportunity;

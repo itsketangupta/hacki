@@ -40,8 +40,9 @@ const slackCollectorLogger = {
 // ---------------------------------------------------------------------------
 
 const HIRING_REGEX = /\b(look(?:ing)? for|need(?:s)?|recruit(?:ing)?|hir(?:ing|e)|join (?:the|our) team|applications? (?:open|available|link)|call for|accepting)\b[\s\S]{0,100}\b(review(?:er|ers|ing)|fulfill(?:er|ers|ment)|organiz(?:er|ers)|mentor(?:s)?|volunteer(?:s)?|gap year|intern(?:s)?)\b/i;
-const OPPORTUNITY_REGEX = /\b(stipend|grant|scholarship|flight|visa letter|deadline|shop drop|shop items?|hyper[- ]?chroma|submission|bounty)\b/i;
+const OPPORTUNITY_REGEX = /\b(stipend|grant|scholarship|flight|visa letter|deadline|shop drop|shop items?|hyper[- ]?chroma|submission|bount(?:y|ies)|call for|applications? (?:open|available)|accepting applications|volunteer(?:ing)?|seeking (?:help|people|contributors)|looking for (?:help|people|contributors)|join (?:the|our) team)\b/i;
 const YSWS_REGEX = /\b(ysws|you ship we ship|new project|launch(?:ed)?|crescent|phantom|horizons|macondo|pixl)\b/i;
+const EVENT_REGEX = /\b(festival|conference|summit|meetup|hackathon|event|premiere|screening|workshop|showcase)\b/i;
 
 function cleanSlackText(text = '') {
   return String(text)
@@ -60,11 +61,13 @@ function classifyAnnouncement(text = '', channel = '') {
   const isHiring = HIRING_REGEX.test(text);
   const isOpportunity = OPPORTUNITY_REGEX.test(text);
   const isYSWS = YSWS_REGEX.test(text) || channel.includes('ysws');
+  const isEvent = EVENT_REGEX.test(text);
   const tags = [];
   if (isHiring) tags.push('hiring');
   if (isOpportunity) tags.push('opportunity');
   if (isYSWS) tags.push('ysws');
-  return { isHiring, isOpportunity, isYSWS, tags: tags.length ? tags : ['announcement'] };
+  if (isEvent) tags.push('event');
+  return { isHiring, isOpportunity, isYSWS, isEvent, kind: isHiring ? 'role' : isEvent ? 'event' : isYSWS ? 'program' : 'opportunity', tags: tags.length ? tags : ['announcement'] };
 }
 
 // ---------------------------------------------------------------------------

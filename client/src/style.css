@@ -853,6 +853,82 @@ body { font-family: Inter, ui-rounded, system-ui, sans-serif; }
 :root[data-theme="dark"] .new-chat-btn:first-of-type { background: #2a2227; }
 :root[data-theme="dark"] .msg-source-tag { background: #252129; }
 
+/* Official Hack Club palette and type. Red leads; the other brand colors mark
+   small, meaningful details so the interface stays calm and readable. */
+@font-face {
+  font-family: 'Phantom Sans';
+  src: url('https://assets.hackclub.com/fonts/Phantom_Sans_0.7/Regular.woff2') format('woff2'),
+       url('https://assets.hackclub.com/fonts/Phantom_Sans_0.7/Regular.woff') format('woff');
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Phantom Sans';
+  src: url('https://assets.hackclub.com/fonts/Phantom_Sans_0.7/Bold.woff2') format('woff2'),
+       url('https://assets.hackclub.com/fonts/Phantom_Sans_0.7/Bold.woff') format('woff');
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+}
+
+:root {
+  --hc-red: #ec3750;
+  --hc-orange: #ff8c37;
+  --hc-yellow: #f1c40f;
+  --hc-green: #33d6a6;
+  --hc-cyan: #5bc0de;
+  --hc-blue: #338eda;
+  --hc-purple: #a633d6;
+  --hc-muted: #8492a6;
+  --primary-hc: var(--hc-red);
+  --primary-hc-hover: #d92742;
+  --font-sans: 'Phantom Sans', Inter, ui-rounded, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+body { font-family: var(--font-sans); }
+button, input, textarea, select { font-family: inherit; }
+.empty-kicker-dot { background: var(--hc-green); box-shadow: 0 0 0 3px color-mix(in srgb, var(--hc-green) 18%, transparent); }
+.prompt-section-label { color: var(--hc-blue); }
+.empty-doodle { color: var(--hc-orange); }
+.empty-logo-wrap { background: color-mix(in srgb, var(--hc-yellow) 70%, white); }
+.empty-prompt-card:nth-child(4n + 1) .prompt-icon { background: color-mix(in srgb, var(--hc-red) 14%, var(--bg-sidebar)); }
+.empty-prompt-card:nth-child(4n + 2) .prompt-icon { background: color-mix(in srgb, var(--hc-cyan) 20%, var(--bg-sidebar)); }
+.empty-prompt-card:nth-child(4n + 3) .prompt-icon { background: color-mix(in srgb, var(--hc-purple) 14%, var(--bg-sidebar)); }
+.empty-prompt-card:nth-child(4n) .prompt-icon { background: color-mix(in srgb, var(--hc-green) 19%, var(--bg-sidebar)); }
+.empty-prompt-card:hover { border-color: color-mix(in srgb, var(--hc-red) 48%, var(--border-subtle)); }
+.opportunity-eyebrow { color: var(--hc-red); }
+.opportunity-filters button.selected { border-color: var(--hc-red); }
+.opportunity-card-meta span:first-child { color: var(--hc-blue); }
+.opportunity-status:not(.stale) { background: color-mix(in srgb, var(--hc-green) 16%, transparent); color: color-mix(in srgb, var(--hc-green) 58%, var(--text-primary)); }
+.opportunity-status.stale { background: color-mix(in srgb, var(--hc-orange) 17%, transparent); color: color-mix(in srgb, var(--hc-orange) 70%, var(--text-primary)); }
+.assistant-avatar { border-color: color-mix(in srgb, var(--hc-red) 35%, var(--border-subtle)); }
+.msg-source-tag:hover { border-color: var(--hc-cyan); }
+.theme-icon-btn[aria-pressed="true"] { color: var(--hc-red); }
+:root[data-theme="dark"] .empty-prompt-card:nth-child(4n + 1) .prompt-icon { background: color-mix(in srgb, var(--hc-red) 23%, var(--bg-sidebar)); }
+:root[data-theme="dark"] .empty-prompt-card:nth-child(4n + 2) .prompt-icon { background: color-mix(in srgb, var(--hc-cyan) 23%, var(--bg-sidebar)); }
+:root[data-theme="dark"] .empty-prompt-card:nth-child(4n + 3) .prompt-icon { background: color-mix(in srgb, var(--hc-purple) 23%, var(--bg-sidebar)); }
+:root[data-theme="dark"] .empty-prompt-card:nth-child(4n) .prompt-icon { background: color-mix(in srgb, var(--hc-green) 23%, var(--bg-sidebar)); }
+
+@media (prefers-color-scheme: dark) {
+  :root[data-theme="system"] {
+    color-scheme: dark;
+    --bg-sidebar: #211d24;
+    --bg-sidebar-hover: #302832;
+    --bg-main: #18171b;
+    --bg-input: #242127;
+    --border-input: #3b353e;
+    --border-subtle: #332e36;
+    --border-hover: var(--hc-red);
+    --text-primary: #f7f0e8;
+    --text-secondary: #c8bfb8;
+    --text-muted: #958b85;
+    --user-msg-bg: #a92b40;
+    --code-bg: #211e24;
+  }
+}
+
 .empty-prompt-card {
   display: flex;
   align-items: center;
