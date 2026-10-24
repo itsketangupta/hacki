@@ -34,9 +34,36 @@ function Icon({ name, size = 20 }) {
     trash: <><path d="M3 6h18M8 6V4h8v2m3 0-1 14H6L5 6m4 4v7m6-7v7"/></>,
     send: <><path d="M12 19V5M5 12l7-7 7 7"/></>,
     shield: <><path d="M12 22s8-4 8-11V5l-8-3-8 3v6c0 7 8 11 8 11Z"/><path d="m9 12 2 2 4-4"/></>,
+    settings: <><circle cx="12" cy="12" r="3"/><path d="m19.4 15 .1.1 1.4 1.1-1.4 2.4-1.7-.7a8 8 0 0 1-1.7 1l-.3 1.8h-2.8l-.3-1.8a8 8 0 0 1-1.7-1l-1.7.7-1.4-2.4 1.4-1.1a8 8 0 0 1 0-2l-1.4-1.1 1.4-2.4 1.7.7a8 8 0 0 1 1.7-1l.3-1.8h2.8l.3 1.8a8 8 0 0 1 1.7 1l1.7-.7 1.4 2.4-1.4 1.1a8 8 0 0 1 0 2Z" transform="translate(-2 -2)"/></>,
     copy: <><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></>
   };
   return <svg {...shared}>{paths[name]}</svg>;
+}
+
+function SettingsModal({ theme, setTheme, preferences, onPreferenceChange, onClose, onExport, onClear, user, chatCount }) {
+  useEffect(() => {
+    const handleKey = event => { if (event.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [onClose]);
+
+  return <div className="settings-backdrop" role="presentation" onMouseDown={event => { if (event.target === event.currentTarget) onClose(); }}>
+    <section className="settings-modal" role="dialog" aria-modal="true" aria-labelledby="settings-title">
+      <header className="settings-header"><div><span className="settings-eyebrow">HACKI PREFERENCES</span><h2 id="settings-title">Settings</h2></div><button className="icon-button" aria-label="Close settings" onClick={onClose}><Icon name="close" size={18}/></button></header>
+      <div className="settings-content">
+        <section className="settings-section"><h3>Appearance</h3><p>Choose how Hacki looks on this device.</p><label className="settings-row"><span><strong>Theme</strong><small>System follows your device setting.</small></span><select value={theme} onChange={event => setTheme(event.target.value)} aria-label="Theme"><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select></label></section>
+        <section className="settings-section"><h3>Chat preferences</h3><p>Change how the chat input and home screen behave.</p>
+          <label className="settings-row"><span><strong>Press Enter to send</strong><small>When off, use Ctrl or ⌘ + Enter to send.</small></span><input type="checkbox" checked={preferences.enterToSend} onChange={event => onPreferenceChange('enterToSend', event.target.checked)} /></label>
+          <label className="settings-row"><span><strong>Show starter prompts</strong><small>Show suggested questions on a new chat.</small></span><input type="checkbox" checked={preferences.showStarterPrompts} onChange={event => onPreferenceChange('showStarterPrompts', event.target.checked)} /></label>
+        </section>
+        <section className="settings-section"><h3>Data controls</h3><p>Download or remove your saved Hacki conversations.</p>
+          <div className="settings-row"><span><strong>Export conversations</strong><small>Download {chatCount} conversation{chatCount === 1 ? '' : 's'} as a JSON file.</small></span><button className="settings-action-btn" onClick={onExport} disabled={!chatCount}>Export</button></div>
+          <div className="settings-row"><span><strong>Delete all conversations</strong><small>Remove saved conversations from this account.</small></span><button className="settings-action-btn danger" onClick={onClear} disabled={!chatCount}>Delete all</button></div>
+        </section>
+        <section className="settings-section settings-account"><h3>Account</h3><p>{user?.name || 'Not signed in'}{user?.email ? ` · ${user.email}` : ''}</p></section>
+      </div>
+    </section>
+  </div>;
 }
 
 function AdminDashboard() {
@@ -308,6 +335,12 @@ export default function App() {
   const [theme, setTheme] = useState(() => {
     try { return localStorage.getItem('hacki-theme') || 'system'; } catch { return 'system'; }
   });
+  const [preferences, setPreferences] = useState(() => {
+    try { return { enterToSend: true, showStarterPrompts: true, ...JSON.parse(localStorage.getItem('hacki-preferences') || '{}') }; }
+    catch { return { enterToSend: true, showStarterPrompts: true }; }
+  });
+  const [preferencesLoadedFor, setPreferencesLoadedFor] = useState(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [user, setUser] = useState(null);
   const [authReady, setAuthReady] = useState(false);
   const [chats, setChats] = useState([]);
@@ -330,6 +363,64 @@ export default function App() {
     document.documentElement.dataset.theme = theme;
     try { localStorage.setItem('hacki-theme', theme); } catch {}
   }, [theme]);
+
+  useEffect(() => {
+    try { localStorage.setItem('hacki-preferences', JSON.stringify(preferences)); } catch {}
+  }, [preferences]);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!user) { setPreferencesLoadedFor(null); return () => { cancelled = true; }; }
+    fetch('/api/settings', { credentials: 'include', cache: 'no-store' })
+      .then(response => response.ok ? response.json() : null)
+      .then(data => {
+        if (cancelled) return;
+        const saved = data?.settings?.hacki_preferences;
+        if (saved) {
+          try { setPreferences(current => ({ ...current, ...JSON.parse(saved) })); } catch {}
+        }
+        setPreferencesLoadedFor(user.id);
+      })
+      .catch(() => { if (!cancelled) setPreferencesLoadedFor(user.id); });
+    return () => { cancelled = true; };
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (!user || preferencesLoadedFor !== user.id) return;
+    fetch('/api/settings/hacki_preferences', {
+      method: 'PUT', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ value: JSON.stringify(preferences) })
+    }).catch(() => {});
+  }, [preferences, preferencesLoadedFor, user?.id]);
+
+  function updatePreference(key, value) {
+    setPreferences(current => ({ ...current, [key]: value }));
+  }
+
+  function exportConversations() {
+    const contents = JSON.stringify({ exportedAt: new Date().toISOString(), account: user?.email || user?.name || null, conversations: savedChats }, null, 2);
+    const url = URL.createObjectURL(new Blob([contents], { type: 'application/json' }));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `hacki-conversations-${new Date().toISOString().slice(0, 10)}.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
+  async function clearAllConversations() {
+    if (!savedChats.length || !window.confirm(`Delete all ${savedChats.length} saved conversations? This cannot be undone.`)) return;
+    const keys = savedChats.map(chat => chat.id);
+    const results = await Promise.all(keys.map(key => fetch(`/api/chat/sessions/${encodeURIComponent(key)}`, { method: 'DELETE', credentials: 'include' })));
+    if (results.some(response => !response.ok && response.status !== 404)) {
+      window.alert('Some conversations could not be deleted. Please try again.');
+      return;
+    }
+    const replacement = newChat();
+    setChats([replacement]);
+    setActiveId(replacement.id);
+    try { localStorage.removeItem(`hacki_chats_${user?.id || user?.email || 'user'}`); } catch {}
+    setSettingsOpen(false);
+  }
 
   useEffect(() => {
     fetch('/api/auth/me', { credentials: 'include', cache: 'no-store' })
@@ -485,7 +576,7 @@ export default function App() {
   }
 
   function handleKeyDown(event) {
-    if (event.key === 'Enter' && !event.shiftKey) {
+    if (event.key === 'Enter' && ((preferences.enterToSend && !event.shiftKey) || (!preferences.enterToSend && (event.ctrlKey || event.metaKey)))) {
       event.preventDefault();
       handleSend();
     }
@@ -533,6 +624,7 @@ export default function App() {
           <div className="topbar-left"><button className="icon-button" title="Open sidebar" aria-label="Open sidebar" onClick={() => setSidebarOpen(true)}><Icon name="menu"/></button><div className="model-badge"><img src="/hacki-logo.png" alt="" className="model-logo"/><span className="model-title">Hacki</span><span className="model-version">HACK CLUB HELPER</span></div></div>
           <div className="topbar-right">
             <div className="theme-control" role="group" aria-label="Choose appearance">{themeOptions.map(option => <button key={option.id} type="button" className="theme-icon-btn" data-theme-choice={option.id} aria-label={option.label} title={option.label} aria-pressed={theme === option.id} onClick={() => setTheme(option.id)}><svg viewBox="0 0 24 24" aria-hidden="true">{option.icon}</svg></button>)}</div>
+            <button className="icon-button" title="Settings" aria-label="Settings" onClick={() => setSettingsOpen(true)}><Icon name="settings" size={18}/></button>
             {!user && authReady && <a href="/auth/login" className="topbar-login-btn">Sign in</a>}
             <button className="icon-button" title="New chat" aria-label="New chat" onClick={createNewChat}><Icon name="edit" size={18}/></button>
           </div>
@@ -543,8 +635,8 @@ export default function App() {
             <div className="empty-kicker"><span className="empty-kicker-dot"/> A LITTLE HELP FOR YOUR NEXT BIG BUILD</div>
             <div className="empty-hero-row"><div className="empty-logo-wrap"><img src="/hacki-logo.png" alt="Hacki" className="empty-hacki-logo"/></div><span className="empty-doodle" aria-hidden="true">✳</span></div>
             <h2 className="empty-title">Make something<br className="desktop-break"/> cool.</h2><p className="empty-desc">Questions about Hack Club? Stuck on a project? Pull up a chair — let’s figure it out.</p>
-            <div className="prompt-section-label">A FEW PLACES TO START</div>
-            <div className="empty-prompts-grid">{STARTER_PROMPTS.map(([icon, label, query]) => <button key={label} className="empty-prompt-card" onClick={() => handleSend(query)}><span className="prompt-icon"><img src={icon} alt="" /></span><span className="prompt-text">{label}</span></button>)}</div>
+            {preferences.showStarterPrompts && <><div className="prompt-section-label">A FEW PLACES TO START</div>
+            <div className="empty-prompts-grid">{STARTER_PROMPTS.map(([icon, label, query]) => <button key={label} className="empty-prompt-card" onClick={() => handleSend(query)}><span className="prompt-icon"><img src={icon} alt="" /></span><span className="prompt-text">{label}</span></button>)}</div></>}
           </div>}
           {activeChat?.messages?.length > 0 && <div className="messages-list">{activeChat.messages.map((message, index) => <Message key={message.id || `${activeChat.id}-${index}`} message={message}/>)}{pendingChatId === activeChat.id && <TypingIndicator status={activityStatus} text={streamedText}/>}</div>}
         </div>}
@@ -555,6 +647,7 @@ export default function App() {
         </div><div className="disclaimer">Hacki can make mistakes. Check verified Hack Club sources on Slack &amp; <a href="https://hackclub.com" target="_blank" rel="noopener noreferrer">hackclub.com</a>.</div></div>}
       </main>
     </div>
+    {settingsOpen && <SettingsModal theme={theme} setTheme={setTheme} preferences={preferences} onPreferenceChange={updatePreference} onClose={() => setSettingsOpen(false)} onExport={exportConversations} onClear={clearAllConversations} user={user} chatCount={savedChats.length}/>}
     {authReady && !user && <AuthModal/>}
   </>;
 }
