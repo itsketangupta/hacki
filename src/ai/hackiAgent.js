@@ -490,6 +490,14 @@ export async function askHacki(userMessage, conversationHistory = [], agentConte
     };
   }
 
+  if (/\bwhy\b.{0,60}\b(?:use|choose|pick|ask|try)\b.{0,60}\b(?:you|u|hacki)\b|\bwhy\b.{0,60}\b(?:not|instead of|rather than)\b.{0,40}\b(?:chatgpt|gemini|claude)\b/i.test(query)) {
+    return {
+      answer: 'Use Hacki when you want Hack Club-specific help: YSWS and community answers, recent opportunities with source links, public GitHub repo help, or a Hack Club Slack assistant. For general questions or tougher tasks, ChatGPT, Gemini, or Claude may suit you better. Pick the tool that fits what you’re doing.',
+      sources: [],
+      suggestedQueries: []
+    };
+  }
+
   if (/\b(?:simple|basic)\b.{0,50}\b(?:html|css|website|webpage)\b.{0,80}\bhello\s+google\b|\bhello\s+google\b.{0,70}\b(?:html|css|website|webpage)\b/i.test(query)) {
     return {
       answer: 'Here’s a simple one-file HTML page with CSS that says “Hello Google”:\n\n```html\n<!doctype html>\n<html lang="en">\n<head>\n  <meta charset="utf-8">\n  <meta name="viewport" content="width=device-width, initial-scale=1">\n  <title>Hello Google</title>\n  <style>\n    body {\n      min-height: 100vh;\n      margin: 0;\n      display: grid;\n      place-items: center;\n      font-family: system-ui, sans-serif;\n      background: #f5f7fb;\n      color: #202124;\n    }\n    h1 { font-size: clamp(2.5rem, 8vw, 5rem); }\n  </style>\n</head>\n<body>\n  <h1>Hello Google 👋</h1>\n</body>\n</html>\n```\n\nSave it as `index.html` and open it in a browser.',
@@ -698,7 +706,8 @@ export async function askHacki(userMessage, conversationHistory = [], agentConte
   // curated catalog and Slack sources above.
   const isHackClubQuestion = /\b(hack\s?club|hackclub|ysws|high seas|hcb|hackclub\.app|hackclub\.com)\b/i.test(query);
   let webContext = '';
-  if (config.webSearchEnabled && !isHackClubQuestion) {
+  const asksForLiveWeb = /\b(?:search (?:the )?web|look up|research|find sources|latest|current|recent|today|this week|news|as of 20\d\d)\b/i.test(query);
+  if (config.webSearchEnabled && !isHackClubQuestion && asksForLiveWeb) {
     try {
       await reportProgress(agentContext, 'Searching the web…');
       const webResults = await searchWeb(query, 5);
@@ -776,7 +785,9 @@ STYLE:
 
     const mcpTools = agentContext.slackUserId ? await loadSlackMcpTools(agentContext.slackUserId) : null;
     const toolContext = mcpTools ? { ...agentContext, mcpTools } : agentContext;
-    const tools = getAgentToolDefinitions(toolContext);
+    const toolIntent = /\b(?:search (?:the )?web|browse (?:this|the) page|fetch this|inspect (?:this )?(?:repo|repository|codebase)|deep search|search hack club sources|search slack|current slack channel)\b/i.test(query) ||
+      /https?:\/\//i.test(query);
+    const tools = toolIntent ? getAgentToolDefinitions(toolContext) : [];
     let lastError;
     let continuationMessages = messages;
     let totalToolCalls = 0;
@@ -791,7 +802,7 @@ STYLE:
             model: provider.model,
             messages: providerMessages,
             temperature: 0.1,
-            max_tokens: 384,
+            max_tokens: agentContext.responseStyle === 'detailed' ? 256 : 192,
             think: false,
             reasoning_effort: 'none',
             ...(streamModelOutput ? { stream: true } : {})
