@@ -1010,6 +1010,7 @@ button, input, textarea, select { font-family: inherit; }
 
 .message-item.assistant .message-body {
   flex: 1;
+  min-width: 0;
   color: var(--text-primary);
   overflow-wrap: break-word;
 }
@@ -1065,7 +1066,9 @@ button, input, textarea, select { font-family: inherit; }
   border-radius: 8px;
   padding: 14px;
   margin: 14px 0;
+  width: 100%;
   max-width: 100%;
+  box-sizing: border-box;
   max-height: 440px;
   overflow-x: auto;
   overflow-y: auto;
@@ -1084,6 +1087,21 @@ button, input, textarea, select { font-family: inherit; }
 .message-body pre code {
   background: none;
   padding: 0;
+}
+
+.message-body pre::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+
+.message-body pre::-webkit-scrollbar-thumb {
+  background: var(--text-muted);
+  border: 2px solid var(--code-bg);
+  border-radius: 999px;
+}
+
+.message-body pre::-webkit-scrollbar-track {
+  background: transparent;
 }
 
 /* Source Badges */
