@@ -482,6 +482,22 @@ export async function askHacki(userMessage, conversationHistory = [], agentConte
     return { answer, sources: [], suggestedQueries: [] };
   }
 
+  if (/\b(?:how\s+(?:are\s+)?(?:you|u)|what\s+makes\s+you)\b.{0,60}\b(?:better|different|vs\.?|compared)\b.{0,80}\b(?:chatgpt|gemini|claude)\b|\b(?:chatgpt|gemini|claude)\b.{0,60}\b(?:better|different|vs\.?|compared)\b/i.test(query)) {
+    return {
+      answer: 'I’m not better than ChatGPT, Gemini, or Claude overall. I’m a smaller assistant focused on Hack Club: I can help with its programs and tools, look through public GitHub repos, and find community opportunities. For broader tasks or tougher reasoning, those larger assistants may do better. Think of me as a Hack Club specialist, not a replacement.',
+      sources: [],
+      suggestedQueries: []
+    };
+  }
+
+  if (/\b(?:simple|basic)\b.{0,50}\b(?:html|css|website|webpage)\b.{0,80}\bhello\s+google\b|\bhello\s+google\b.{0,70}\b(?:html|css|website|webpage)\b/i.test(query)) {
+    return {
+      answer: 'Here’s a simple one-file HTML page with CSS that says “Hello Google”:\n\n```html\n<!doctype html>\n<html lang="en">\n<head>\n  <meta charset="utf-8">\n  <meta name="viewport" content="width=device-width, initial-scale=1">\n  <title>Hello Google</title>\n  <style>\n    body {\n      min-height: 100vh;\n      margin: 0;\n      display: grid;\n      place-items: center;\n      font-family: system-ui, sans-serif;\n      background: #f5f7fb;\n      color: #202124;\n    }\n    h1 { font-size: clamp(2.5rem, 8vw, 5rem); }\n  </style>\n</head>\n<body>\n  <h1>Hello Google 👋</h1>\n</body>\n</html>\n```\n\nSave it as `index.html` and open it in a browser.',
+      sources: [],
+      suggestedQueries: []
+    };
+  }
+
   // Answer questions about Hacki's own runtime from deployment configuration,
   // rather than letting a small model guess whether it uses a hosted AI API.
   const asksHowHackiRuns = /\b(?:llm|large language model|language model)\b/i.test(query) ||
@@ -775,7 +791,9 @@ STYLE:
             model: provider.model,
             messages: providerMessages,
             temperature: 0.1,
-            max_tokens: 1400,
+            max_tokens: 384,
+            think: false,
+            reasoning_effort: 'none',
             ...(streamModelOutput ? { stream: true } : {})
           };
           if (includeTools) {
@@ -789,7 +807,7 @@ STYLE:
               Authorization: `Bearer ${provider.apiKey}`
             },
             body: JSON.stringify(requestBody),
-            signal: AbortSignal.timeout(60_000)
+            signal: AbortSignal.timeout(90_000)
           }, provider.name);
 
           if (!aiResponse.ok) {
