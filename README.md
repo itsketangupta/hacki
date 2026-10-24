@@ -25,7 +25,7 @@ The web client uses **React** and **Vite**. An **Express** server provides Hack 
 - Optional persistent per-thread Python, JavaScript, TypeScript, shell, and file operations in an isolated E2B sandbox, through `run: <code>` or natural-language requests to execute code or work with files.
 - Upload files produced in the current Slack thread's E2B sandbox after showing the filename and asking the user to confirm; files are limited to 10 MB.
 - Start a temporary public static preview for a project directory in the current thread's E2B sandbox after confirmation. Anyone with the URL can view it while the sandbox remains active.
-- Public GitHub repository, issue, and file lookups; optionally prepare a confirmed edit in operator-approved repositories.
+- Public GitHub repository, issue, and file lookups; deep searches scan the public file tree and relevant readable source/docs/config files without a GitHub API key. Anonymous GitHub API rate limits still apply. Optionally prepare a confirmed edit in operator-approved repositories.
 - Channel post requests and polls go through an interactive confirmation; `react: emoji` adds a reaction to the current thread’s parent message.
 - Optional SMTP email sending from DMs, one-time account welcome emails, and admin broadcasts to members who opted in.
 - Persistent Slack reminders through `remind me in 20m to ...` or `remind me every 1h to ...`.
@@ -151,7 +151,7 @@ Never commit `.env` or put credentials in client code. `.env` is excluded by `.g
 | `GET` | `/api/status` | Catalog and collector counts |
 | `GET` | `/api/team?q=...` | Search the team cache |
 | `GET` | `/api/ysws?q=...` | Search YSWS catalog (`?new=true` for newly opened entries) |
-| `GET` | `/api/opportunities?q=...&type=all` | Search cached Slack opportunities; types: `all`, `roles`, `programs`, `events` |
+| `GET` | `/api/opportunities?q=...&type=all&days=7` | Search cached Slack opportunities from the last seven days by default; types: `all`, `roles`, `programs`, `events` |
 | `POST` | `/api/sync` | Start a background team and YSWS refresh |
 
 ## Project layout

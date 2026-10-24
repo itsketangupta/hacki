@@ -9,6 +9,7 @@ let syncTimer = null;
 let nextChannelToSync = 0;
 let syncInFlight = false;
 let historyRetryAt = 0;
+const historyScopeWarnings = new Set();
 const CHANNELS_CACHE_FILE = path.join(config.dataDir, 'slack_channels_cache.json');
 const ANNOUNCEMENTS_CHECKED_FILE = path.join(config.dataDir, 'announcements.checked-at');
 const ANNOUNCEMENTS_CACHE_LIMIT = 10000;
@@ -107,7 +108,7 @@ export async function getRecentAnnouncements(limit = 15) {
   return all.slice(0, limit);
 }
 
-export async function searchAnnouncements(query = '') {
+export async function searchAnnouncements(query = '', { limit = 15 } = {}) {
   const all = await loadAnnouncements();
   const q = query.toLowerCase().trim();
   if (!q) return [];
@@ -150,7 +151,7 @@ export async function searchAnnouncements(query = '') {
     })
     .filter(result => result.score > 0 && (channelNames.length > 0 || result.matched >= Math.max(1, Math.ceil(terms.length * 0.4))))
     .sort((a, b) => b.score - a.score || Number(b.item.timestamp || 0) - Number(a.item.timestamp || 0))
-    .slice(0, 15)
+    .slice(0, Math.min(Math.max(Number(limit) || 15, 1), 1000))
     .map(result => result.item);
 }
 
@@ -219,6 +220,7 @@ function shouldJoinChannel(name) {
 
 function channelSyncPriority(channel) {
   const name = String(channel.name || '').toLowerCase();
+  if (['hc-opportunities', 'hc-opportunity', 'opportunities', 'intl-opportunities', 'bounty', 'community-bounties'].includes(name)) return -1;
   if (name.includes('bulletin') || name.includes('opportunit') || name.includes('bounty')) return 0;
   if (name.includes('announcement') || name === 'announcements' || name === 'happenings') return 1;
   if (name.includes('ysws')) return 2;
@@ -461,6 +463,16 @@ async function syncPublicAnnouncements() {
         const retryHeader = err.headers?.['retry-after'] || err.data?.retry_after || err.retryAfter;
         const retryFromMessage = String(err.message || '').match(/retry-after\D+(\d+)/i)?.[1];
         const retrySeconds = Number(retryHeader || retryFromMessage);
+        const slackError = err.data?.error || '';
+        if (slackError === 'missing_scope') {
+          const needed = err.data?.needed || 'channels:history';
+          if (!historyScopeWarnings.has(needed)) {
+            historyScopeWarnings.add(needed);
+            console.warn(`[SlackCollector] Slack history sync needs the ${needed} scope. Add it to the Slack app and reinstall the app in the workspace.`);
+          }
+          historyRetryAt = Date.now() + 5 * 60 * 1000;
+          break;
+        }
         if (retrySeconds > 0) {
           historyRetryAt = Date.now() + (retrySeconds + 1) * 1000;
           console.warn(`[SlackCollector] Rate limited while reading #${ch.name}; pausing this batch and retrying it after the cooldown.`);

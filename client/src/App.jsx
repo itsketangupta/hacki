@@ -213,6 +213,8 @@ function OpportunityFinder({ user }) {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [sourceNotice, setSourceNotice] = useState('');
+  const [sourceCheckedAt, setSourceCheckedAt] = useState(null);
   const [searched, setSearched] = useState(false);
 
   const search = useCallback(async (nextQuery = query, nextType = type) => {
@@ -225,6 +227,8 @@ function OpportunityFinder({ user }) {
       const data = await response.json();
       if (!response.ok || !data.ok) throw new Error(data.error || 'Could not search opportunities.');
       setItems(data.opportunities || []);
+      setSourceNotice(data.sourceNotice || '');
+      setSourceCheckedAt(data.sourceCheckedAt || null);
       setSearched(true);
     } catch (err) {
       setError(err.message);
@@ -244,8 +248,8 @@ function OpportunityFinder({ user }) {
   const filters = [['all', 'All'], ['roles', 'Roles'], ['programs', 'Programs & YSWS'], ['events', 'Events']];
   return <section className="opportunity-finder" aria-labelledby="opportunity-title">
     <div className="opportunity-heading">
-      <div><span className="opportunity-eyebrow">LIVE FROM HACK CLUB SOURCES</span><h1 id="opportunity-title">Find your next opportunity</h1>
-        <p>Search recent Slack bulletins for programs, events, roles, bounties, and calls for help. Every result links to its original post.</p></div>
+      <div><span className="opportunity-eyebrow">HACK CLUB SLACK · LAST 7 DAYS</span><h1 id="opportunity-title">Find your next opportunity</h1>
+        <p>Search the latest week of collected Slack posts for programs, events, roles, bounties, and calls for help. Every result links to its original post.</p></div>
     </div>
     <form className="opportunity-search" onSubmit={event => { event.preventDefault(); search(); }}>
       <input value={query} onChange={event => setQuery(event.target.value)} placeholder="Try: remote reviewer, hardware, game YSWS…" aria-label="Search Hack Club opportunities" />
@@ -254,9 +258,11 @@ function OpportunityFinder({ user }) {
     <div className="opportunity-filters" role="group" aria-label="Opportunity type">
       {filters.map(([id, label]) => <button key={id} type="button" className={type === id ? 'selected' : ''} onClick={() => { setType(id); search(query, id); }}>{label}</button>)}
     </div>
-    <div className="opportunity-results-heading"><h2>{searched ? `${items.length} matching posts` : 'Recent posts'}</h2><span>Old posts are labeled; confirm availability in the source.</span></div>
+    <div className="opportunity-results-heading"><h2>{searched ? `${items.length} posts from the last 7 days` : 'Recent posts from the last 7 days'}</h2><span>Confirm availability in the original post.</span></div>
     {error && <div className="opportunity-state">{error}</div>}
-    {!error && !loading && items.length === 0 && <div className="opportunity-state">No matching posts in the current Slack snapshot. Try a broader search or check back after the next sync.</div>}
+    {!error && sourceNotice && <div className="opportunity-state">{sourceNotice}</div>}
+    {!error && !sourceNotice && sourceCheckedAt && <div className="opportunity-freshness">Slack last checked {new Date(sourceCheckedAt).toLocaleString()}.</div>}
+    {!error && !sourceNotice && !loading && items.length === 0 && <div className="opportunity-state">No matching opportunity posts were found in the collected Slack posts from the last 7 days. Try another search, or check back after the next sync.</div>}
     <div className="opportunity-grid">{items.map(item => <article className="opportunity-card" key={item.id || item.url}>
       <div className="opportunity-card-meta"><span>#{item.channel}</span><span>{item.publishedDate || 'Date unavailable'}</span></div>
       <h3>{item.title}</h3>
@@ -265,7 +271,7 @@ function OpportunityFinder({ user }) {
       <div className="opportunity-card-actions">{item.url ? <a href={item.url} target="_blank" rel="noopener noreferrer">Open source <span aria-hidden="true">↗</span></a> : <span>Source link unavailable</span>}{item.eventDate && <span>Event: {item.eventDate}</span>}</div>
     </article>)}</div>
     {loading && <div className="opportunity-state">Searching the latest indexed posts…</div>}
-    <p className="opportunity-freshness">This view searches Hacki’s collected Slack snapshot. It can’t guarantee a post is still open; check deadlines and eligibility at the linked source.</p>
+    <p className="opportunity-freshness">This view searches Hacki’s collected Slack snapshot from the last 7 days. Check deadlines and eligibility at the linked source.</p>
   </section>;
 }
 

@@ -424,10 +424,21 @@ apiRouter.get('/opportunities', async (req, res) => {
   try {
     const query = String(req.query.q || '').trim().slice(0, 160);
     const type = ['all', 'roles', 'programs', 'events'].includes(req.query.type) ? req.query.type : 'all';
-    const base = query ? await searchAnnouncements(query) : await loadAnnouncements();
+    const requestedDays = Number.parseInt(String(req.query.days || '7'), 10);
+    const days = Number.isFinite(requestedDays) ? Math.min(Math.max(requestedDays, 1), 30) : 7;
+    const cutoffTimestamp = (Date.now() - days * 24 * 60 * 60 * 1000) / 1000;
+    const base = query ? await searchAnnouncements(query, { limit: 1000 }) : await loadAnnouncements();
     const today = new Date().toISOString().slice(0, 10);
+    let sourceAvailable = true;
+    let sourceCheckedAt = null;
+    try {
+      await fs.access(config.announcementsFile);
+      try { sourceCheckedAt = (await fs.readFile(`${config.dataDir}/announcements.checked-at`, 'utf8')).trim() || null; } catch {}
+    } catch { sourceAvailable = false; }
     const opportunities = base
       .filter(item => {
+        const timestamp = Number(String(item.timestamp || '').split('.')[0]);
+        if (!Number.isFinite(timestamp) || timestamp < cutoffTimestamp) return false;
         const categories = Array.isArray(item.categories) ? item.categories : [];
         const tags = Array.isArray(item.tags) ? item.tags : [];
         const role = item.isHiring || categories.includes('hiring') || tags.includes('hiring');
@@ -440,7 +451,7 @@ apiRouter.get('/opportunities', async (req, res) => {
         return role || program || event || opportunity;
       })
       .sort((a, b) => Number(String(b.timestamp || 0).split('.')[0]) - Number(String(a.timestamp || 0).split('.')[0]))
-      .slice(0, 40)
+      .slice(0, 1000)
       .map(item => {
         const publishedDate = item.timestamp
           ? new Date(Number(String(item.timestamp).split('.')[0]) * 1000).toISOString().slice(0, 10)
@@ -469,7 +480,18 @@ apiRouter.get('/opportunities', async (req, res) => {
           kind: item.kind || (item.isHiring ? 'role' : item.isYSWS ? 'program' : 'opportunity')
         };
       });
-    res.json({ ok: true, count: opportunities.length, query, type, opportunities, snapshotDate: today });
+    res.json({
+      ok: true,
+      count: opportunities.length,
+      query,
+      type,
+      days,
+      opportunities,
+      snapshotDate: today,
+      sourceAvailable,
+      sourceCheckedAt,
+      sourceNotice: sourceAvailable ? null : 'Hacki has not collected a Slack opportunities snapshot yet. The Slack app needs the channels:history scope and must be reinstalled in the workspace before it can read public-channel posts.'
+    });
   } catch (error) {
     res.status(500).json({ ok: false, error: error.message });
   }
