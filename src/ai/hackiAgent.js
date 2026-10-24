@@ -348,6 +348,15 @@ export async function askHacki(userMessage, conversationHistory = [], agentConte
     };
   }
 
+  const asksForFeatureList = /\b(?:features?|freatures?|capabilities)\b/i.test(query) && /\b(?:all|list|tell me|what can|your|hacki)\b/i.test(query);
+  if (asksForFeatureList) {
+    return {
+      answer: `Here are Hacki’s main features:\n\n- Answers questions about Hack Club, its programs, YSWS, team, tools, and Slack opportunities.\n- Searches Hack Club sources and shows source links and data dates when available.\n- Searches the current Slack channel when asked about its discussion.\n- Reads public GitHub repositories and files; deep-search scans readable code, docs, and configuration files without a GitHub API key.\n- Searches the web and fetches public pages when that service is configured.\n- Handles general questions, brainstorming, writing, and project help.\n- Saves signed-in website conversations and supports Slack DMs, mentions, and thread context.\n- In Slack, can use reminders and private memories, and can run code or work with files in an isolated sandbox when enabled.\n- Can prepare requested Slack posts, polls, canvases, channels, emails, and file uploads for confirmation before they happen.\n\nSome Slack, web, and sandbox features depend on the server’s current configuration.`,
+      sources: [{ title: 'Hacki features and documentation', url: 'https://github.com/itsketangupta/hacki#features', type: 'github' }],
+      suggestedQueries: []
+    };
+  }
+
   // A linked repository overview is factual metadata work; answer it directly
   // from GitHub so it does not depend on the slower chat model being available.
   const linkedRepoMatch = query.match(/https?:\/\/github\.com\/([A-Za-z0-9-]+)\/([A-Za-z0-9_.-]+)\/?(?:[?#][^\s]*)?/i);
