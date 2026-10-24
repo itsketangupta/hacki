@@ -40,7 +40,7 @@ function Icon({ name, size = 20 }) {
   return <svg {...shared}>{paths[name]}</svg>;
 }
 
-function SettingsModal({ theme, setTheme, preferences, onPreferenceChange, onClose, onExport, onClear, user, chatCount }) {
+function SettingsModal({ theme, setTheme, preferences, onPreferenceChange, onNotificationChange, onClose, onExport, onClear, user, chatCount }) {
   useEffect(() => {
     const handleKey = event => { if (event.key === 'Escape') onClose(); };
     window.addEventListener('keydown', handleKey);
@@ -52,14 +52,21 @@ function SettingsModal({ theme, setTheme, preferences, onPreferenceChange, onClo
       <header className="settings-header"><div><span className="settings-eyebrow">HACKI PREFERENCES</span><h2 id="settings-title">Settings</h2></div><button className="icon-button" aria-label="Close settings" onClick={onClose}><Icon name="close" size={18}/></button></header>
       <div className="settings-content">
         <section className="settings-section"><h3>Appearance</h3><p>Choose how Hacki looks on this device.</p><label className="settings-row"><span><strong>Theme</strong><small>System follows your device setting.</small></span><select value={theme} onChange={event => setTheme(event.target.value)} aria-label="Theme"><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select></label></section>
-        <section className="settings-section"><h3>Chat preferences</h3><p>Change how the chat input and home screen behave.</p>
+        <section className="settings-section"><h3>General</h3><p>Choose how sending and notifications work.</p>
           <label className="settings-row"><span><strong>Press Enter to send</strong><small>When off, use Ctrl or ⌘ + Enter to send.</small></span><input type="checkbox" checked={preferences.enterToSend} onChange={event => onPreferenceChange('enterToSend', event.target.checked)} /></label>
+          <label className="settings-row"><span><strong>Reply notifications</strong><small>Notify when a reply finishes while this tab is hidden.</small></span><input type="checkbox" checked={preferences.notifyWhenDone} onChange={event => onNotificationChange(event.target.checked)} /></label>
+        </section>
+        <section className="settings-section"><h3>Personalization</h3><p>Set how Hacki responds across your chats.</p>
+          <label className="settings-row"><span><strong>Response style</strong><small>Sets the default tone and level of detail.</small></span><select value={preferences.responseStyle} onChange={event => onPreferenceChange('responseStyle', event.target.value)} aria-label="Response style"><option value="default">Default</option><option value="friendly">Friendly</option><option value="concise">Concise</option><option value="detailed">Detailed</option></select></label>
+          <label className="settings-row"><span><strong>Response language</strong><small>Choose a default language for Hacki’s replies.</small></span><select value={preferences.responseLanguage} onChange={event => onPreferenceChange('responseLanguage', event.target.value)} aria-label="Response language"><option value="auto">Automatic</option><option value="en">English</option><option value="es">Spanish</option><option value="fr">French</option><option value="hi">Hindi</option><option value="pt">Portuguese</option></select></label>
+          <label className="settings-instructions"><strong>Custom instructions</strong><small>Preferences Hacki should follow in every conversation.</small><textarea maxLength={2000} value={preferences.customInstructions} onChange={event => onPreferenceChange('customInstructions', event.target.value)} placeholder="For example: explain technical terms simply, and use examples from web development." /></label>
           <label className="settings-row"><span><strong>Show starter prompts</strong><small>Show suggested questions on a new chat.</small></span><input type="checkbox" checked={preferences.showStarterPrompts} onChange={event => onPreferenceChange('showStarterPrompts', event.target.checked)} /></label>
         </section>
         <section className="settings-section"><h3>Data controls</h3><p>Download or remove your saved Hacki conversations.</p>
           <div className="settings-row"><span><strong>Export conversations</strong><small>Download {chatCount} conversation{chatCount === 1 ? '' : 's'} as a JSON file.</small></span><button className="settings-action-btn" onClick={onExport} disabled={!chatCount}>Export</button></div>
           <div className="settings-row"><span><strong>Delete all conversations</strong><small>Remove saved conversations from this account.</small></span><button className="settings-action-btn danger" onClick={onClear} disabled={!chatCount}>Delete all</button></div>
         </section>
+        <section className="settings-section"><h3>Keyboard shortcuts</h3><p><kbd>Ctrl</kbd> / <kbd>⌘</kbd> + <kbd>,</kbd> opens settings. The send shortcut follows your Enter preference.</p></section>
         <section className="settings-section settings-account"><h3>Account</h3><p>{user?.name || 'Not signed in'}{user?.email ? ` · ${user.email}` : ''}</p></section>
       </div>
     </section>
@@ -336,11 +343,13 @@ export default function App() {
     try { return localStorage.getItem('hacki-theme') || 'system'; } catch { return 'system'; }
   });
   const [preferences, setPreferences] = useState(() => {
-    try { return { enterToSend: true, showStarterPrompts: true, ...JSON.parse(localStorage.getItem('hacki-preferences') || '{}') }; }
-    catch { return { enterToSend: true, showStarterPrompts: true }; }
+    const defaults = { enterToSend: true, showStarterPrompts: true, notifyWhenDone: false, responseStyle: 'default', responseLanguage: 'auto', customInstructions: '' };
+    try { return { ...defaults, ...JSON.parse(localStorage.getItem('hacki-preferences') || '{}') }; }
+    catch { return defaults; }
   });
   const [preferencesLoadedFor, setPreferencesLoadedFor] = useState(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [user, setUser] = useState(null);
   const [authReady, setAuthReady] = useState(false);
   const [chats, setChats] = useState([]);
@@ -387,14 +396,38 @@ export default function App() {
 
   useEffect(() => {
     if (!user || preferencesLoadedFor !== user.id) return;
-    fetch('/api/settings/hacki_preferences', {
-      method: 'PUT', credentials: 'include', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ value: JSON.stringify(preferences) })
-    }).catch(() => {});
+    const timer = window.setTimeout(() => {
+      fetch('/api/settings/hacki_preferences', {
+        method: 'PUT', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ value: JSON.stringify(preferences) })
+      }).catch(() => {});
+    }, 350);
+    return () => window.clearTimeout(timer);
   }, [preferences, preferencesLoadedFor, user?.id]);
+
+  useEffect(() => {
+    const onShortcut = event => {
+      if ((event.ctrlKey || event.metaKey) && event.key === ',') {
+        event.preventDefault();
+        setSettingsOpen(true);
+        setProfileMenuOpen(false);
+      }
+    };
+    window.addEventListener('keydown', onShortcut);
+    return () => window.removeEventListener('keydown', onShortcut);
+  }, []);
 
   function updatePreference(key, value) {
     setPreferences(current => ({ ...current, [key]: value }));
+  }
+
+  async function updateNotificationPreference(enabled) {
+    if (enabled && !('Notification' in window)) {
+      window.alert('This browser does not support desktop notifications.');
+      return;
+    }
+    if (enabled && Notification.permission !== 'granted' && await Notification.requestPermission() !== 'granted') return;
+    updatePreference('notifyWhenDone', enabled);
   }
 
   function exportConversations() {
@@ -561,6 +594,9 @@ export default function App() {
     } catch (error) {
       updateChat(chatId, chat => ({ ...chat, messages: [...chat.messages, { id: `${Date.now()}-error`, role: 'assistant', text: `⚠️ ${error.message}` }] }));
     } finally {
+      if (preferences.notifyWhenDone && document.hidden && 'Notification' in window && Notification.permission === 'granted') {
+        try { new Notification('Hacki replied', { body: 'Your answer is ready.' }); } catch {}
+      }
       setSending(false);
       setPendingChatId(null);
       setActivityStatus('');
@@ -610,13 +646,16 @@ export default function App() {
             <span className="chat-history-title">{chat.title || 'New chat'}</span><button className="chat-history-delete" title="Delete chat" aria-label={`Delete ${chat.title || 'chat'}`} onClick={event => removeChat(chat.id, event)}><Icon name="trash" size={14}/></button>
           </div>)}
         </div>
-        <div className="sidebar-bottom"><div className="auth-section">
-          {!user ? <a href="/auth/login" className="hc-auth-btn"><img src="/hackclub-flag.svg" alt="" className="auth-btn-icon"/><span>Sign in with Hack Club</span></a> : <div className="user-profile-card">
-            <div className="user-avatar">{user.avatar ? <img src={user.avatar} alt=""/> : profileInitials}</div>
-            <div className="user-details"><div className="user-name">{user.name || 'Hack Clubber'}</div><div className="user-sub">{user.email || 'Hack Club Member'}</div>{user.slackId && <div className="user-slack-tag"><span className="slack-dot"/><span>Slack linked</span></div>}</div>
-            <a href="/auth/logout" className="user-logout-btn" title="Sign out" aria-label="Sign out" onClick={logout}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg></a>
+        <div className="sidebar-bottom">
+          {!user ? <div className="auth-section"><a href="/auth/login" className="hc-auth-btn"><img src="/hackclub-flag.svg" alt="" className="auth-btn-icon"/><span>Sign in with Hack Club</span></a><button className="sidebar-nav-item sidebar-settings-link" onClick={() => setSettingsOpen(true)}><Icon name="settings" size={17}/>Settings</button></div> : <div className="sidebar-account-area">
+            {profileMenuOpen && <div className="account-menu"><button onClick={() => { setSettingsOpen(true); setProfileMenuOpen(false); }}><Icon name="settings" size={16}/>Settings</button><a href="/auth/logout" onClick={logout}><span aria-hidden="true">↪</span>Sign out</a></div>}
+            <button className="user-profile-card" aria-expanded={profileMenuOpen} onClick={() => setProfileMenuOpen(open => !open)}>
+              <span className="user-avatar">{user.avatar ? <img src={user.avatar} alt=""/> : profileInitials}</span>
+              <span className="user-details"><span className="user-name">{user.name || 'Hack Clubber'}</span><span className="user-sub">{user.email || 'Hack Club Member'}</span>{user.slackId && <span className="user-slack-tag"><span className="slack-dot"/><span>Slack linked</span></span>}</span>
+              <span className="account-menu-chevron" aria-hidden="true">⌃</span>
+            </button>
           </div>}
-        </div></div>
+        </div>
       </aside>
 
       <main className="main-content">
@@ -624,7 +663,6 @@ export default function App() {
           <div className="topbar-left"><button className="icon-button" title="Open sidebar" aria-label="Open sidebar" onClick={() => setSidebarOpen(true)}><Icon name="menu"/></button><div className="model-badge"><img src="/hacki-logo.png" alt="" className="model-logo"/><span className="model-title">Hacki</span><span className="model-version">HACK CLUB HELPER</span></div></div>
           <div className="topbar-right">
             <div className="theme-control" role="group" aria-label="Choose appearance">{themeOptions.map(option => <button key={option.id} type="button" className="theme-icon-btn" data-theme-choice={option.id} aria-label={option.label} title={option.label} aria-pressed={theme === option.id} onClick={() => setTheme(option.id)}><svg viewBox="0 0 24 24" aria-hidden="true">{option.icon}</svg></button>)}</div>
-            <button className="icon-button" title="Settings" aria-label="Settings" onClick={() => setSettingsOpen(true)}><Icon name="settings" size={18}/></button>
             {!user && authReady && <a href="/auth/login" className="topbar-login-btn">Sign in</a>}
             <button className="icon-button" title="New chat" aria-label="New chat" onClick={createNewChat}><Icon name="edit" size={18}/></button>
           </div>
@@ -647,7 +685,7 @@ export default function App() {
         </div><div className="disclaimer">Hacki can make mistakes. Check verified Hack Club sources on Slack &amp; <a href="https://hackclub.com" target="_blank" rel="noopener noreferrer">hackclub.com</a>.</div></div>}
       </main>
     </div>
-    {settingsOpen && <SettingsModal theme={theme} setTheme={setTheme} preferences={preferences} onPreferenceChange={updatePreference} onClose={() => setSettingsOpen(false)} onExport={exportConversations} onClear={clearAllConversations} user={user} chatCount={savedChats.length}/>}
+    {settingsOpen && <SettingsModal theme={theme} setTheme={setTheme} preferences={preferences} onPreferenceChange={updatePreference} onNotificationChange={updateNotificationPreference} onClose={() => setSettingsOpen(false)} onExport={exportConversations} onClear={clearAllConversations} user={user} chatCount={savedChats.length}/>}
     {authReady && !user && <AuthModal/>}
   </>;
 }

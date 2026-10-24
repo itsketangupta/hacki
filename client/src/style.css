@@ -335,10 +335,15 @@ body {
   display: flex;
   align-items: center;
   gap: 10px;
+  width: 100%;
   padding: 8px 10px;
+  color: var(--text-primary);
+  font: inherit;
+  text-align: left;
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid var(--border-subtle);
+  cursor: pointer;
   transition: background 0.15s, border-color 0.15s;
 }
 
@@ -411,6 +416,14 @@ body {
   color: var(--primary-hc);
   background: rgba(255, 255, 255, 0.08);
 }
+
+.sidebar-account-area { position: relative; }
+.account-menu { position: absolute; z-index: 20; right: 0; bottom: calc(100% + 9px); left: 0; padding: 6px; border: 1px solid var(--border-subtle); border-radius: 12px; background: var(--bg-main); box-shadow: 0 12px 34px rgba(0,0,0,.2); }
+.account-menu button, .account-menu a { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 38px; padding: 8px 10px; border: 0; border-radius: 8px; color: var(--text-primary); background: transparent; font: inherit; font-size: 13px; text-align: left; text-decoration: none; cursor: pointer; }
+.account-menu button:hover, .account-menu a:hover { background: var(--bg-sidebar-hover); }
+.account-menu-chevron { margin-left: auto; color: var(--text-muted); font-size: 15px; }
+.sidebar-settings-link { margin-top: 8px; color: var(--text-secondary); }
+.sidebar-settings-link:hover { color: var(--text-primary); }
 
 /* ===================================================================
    Main Chat Workspace
@@ -789,6 +802,7 @@ body { font-family: Inter, ui-rounded, system-ui, sans-serif; }
 .opportunity-nav-btn.selected { background: #ffe8d4; border-color: #f2c5a3; color: #382e26; }
 .chat-history-item:hover, .chat-history-item.active { background: var(--bg-sidebar-hover); color: var(--text-primary); }
 .user-profile-card { border-color: #e9d8c8; background: rgba(255,255,255,.58); }
+.user-profile-card .user-name { color: var(--text-primary); }
 .main-content { background-color: var(--bg-main); }
 .topbar { height: 60px; border-bottom: 1px solid var(--border-subtle); }
 .model-badge { padding-inline: 6px; }
@@ -1945,7 +1959,13 @@ button, input, textarea, select { font-family: inherit; }
 .settings-action-btn:hover:not(:disabled) { border-color: var(--primary-hc); }
 .settings-action-btn.danger { color: #b42332; }
 .settings-action-btn:disabled { opacity: .48; cursor: not-allowed; }
+.settings-section kbd { display: inline-block; padding: 2px 5px; border: 1px solid var(--border-input); border-radius: 5px; color: var(--text-primary); background: var(--bg-input); font: 11px var(--font-mono); }
 .settings-account p { margin-bottom: 0; }
+.settings-instructions { display: flex; flex-direction: column; gap: 6px; padding: 12px 0; }
+.settings-instructions strong { font-size: 13px; font-weight: 650; }
+.settings-instructions small { color: var(--text-muted); font-size: 11px; }
+.settings-instructions textarea { width: 100%; min-height: 100px; resize: vertical; padding: 10px 12px; border: 1px solid var(--border-input); border-radius: 10px; outline: none; color: var(--text-primary); background: var(--bg-input); font: inherit; font-size: 12px; line-height: 1.5; }
+.settings-instructions textarea:focus { border-color: var(--primary-hc); box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary-hc) 20%, transparent); }
 @media (max-width: 600px) {
   .settings-backdrop { padding: 10px; align-items: end; }
   .settings-modal { max-height: calc(100dvh - 20px); border-radius: 18px 18px 12px 12px; }

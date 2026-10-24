@@ -205,7 +205,12 @@ apiRouter.post('/chat', async (req, res) => {
     }, 12000);
     sendEvent('status', { message: 'Reading your question…' });
 
+    let chatPreferences = {};
+    try { chatPreferences = JSON.parse(getSetting(user.id, 'hacki_preferences', '{}')) || {}; } catch {}
     const result = await askHacki(message, aiHistory, {
+      responseStyle: String(chatPreferences.responseStyle || 'default').slice(0, 24),
+      responseLanguage: String(chatPreferences.responseLanguage || 'auto').slice(0, 12),
+      customInstructions: String(chatPreferences.customInstructions || '').slice(0, 2000),
       onProgress: status => sendEvent('status', { message: status }),
       onTextDelta: text => sendEvent('delta', { text })
     });
