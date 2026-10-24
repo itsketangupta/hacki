@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import rehypeHighlight from 'rehype-highlight';
 import './style.css';
 
 const STARTER_PROMPTS = [
@@ -165,7 +166,7 @@ function Message({ message }) {
       {message.role === 'assistant' && !finished
         ? visibleText
         : message.role === 'assistant'
-          ? <ReactMarkdown remarkPlugins={[remarkGfm]} components={{ a: ({ node, ...props }) => <a {...props} target="_blank" rel="noopener noreferrer" /> }}>{message.text}</ReactMarkdown>
+          ? <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeHighlight]} components={{ a: ({ node, ...props }) => <a {...props} target="_blank" rel="noopener noreferrer" /> }}>{message.text}</ReactMarkdown>
           : message.text}
       {finished && message.role === 'assistant' && (sources.length > 0 || dateLabels.length > 0) && <div className="msg-sources-row">
         {sources.map((source, index) => <a className="msg-source-tag" href={source.url} key={`${source.url}-${index}`} target="_blank" rel="noopener noreferrer">

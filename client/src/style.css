@@ -1073,7 +1073,7 @@ button, input, textarea, select { font-family: inherit; }
   overflow-x: auto;
   overflow-y: auto;
   overscroll-behavior: contain;
-  scrollbar-width: thin;
+  scrollbar-width: thin !important;
   scrollbar-color: var(--text-muted) transparent;
 }
 
@@ -1090,8 +1090,10 @@ button, input, textarea, select { font-family: inherit; }
 }
 
 .message-body pre::-webkit-scrollbar {
-  width: 9px;
-  height: 9px;
+  display: block !important;
+  width: 9px !important;
+  height: 9px !important;
+  background: transparent !important;
 }
 
 .message-body pre::-webkit-scrollbar-thumb {
@@ -1102,6 +1104,81 @@ button, input, textarea, select { font-family: inherit; }
 
 .message-body pre::-webkit-scrollbar-track {
   background: transparent;
+}
+
+.message-body pre .hljs-comment,
+.message-body pre .hljs-quote { color: #6a9955; font-style: italic; }
+.message-body pre .hljs-keyword,
+.message-body pre .hljs-selector-tag,
+.message-body pre .hljs-literal,
+.message-body pre .hljs-built_in { color: #c586c0; }
+.message-body pre .hljs-string,
+.message-body pre .hljs-doctag,
+.message-body pre .hljs-regexp,
+.message-body pre .hljs-addition { color: #ce9178; }
+.message-body pre .hljs-number,
+.message-body pre .hljs-symbol,
+.message-body pre .hljs-bullet { color: #b5cea8; }
+.message-body pre .hljs-title,
+.message-body pre .hljs-title.function_,
+.message-body pre .hljs-section { color: #dcdcaa; }
+.message-body pre .hljs-attr,
+.message-body pre .hljs-attribute,
+.message-body pre .hljs-variable,
+.message-body pre .hljs-params { color: #9cdcfe; }
+.message-body pre .hljs-type,
+.message-body pre .hljs-class .hljs-title { color: #4ec9b0; }
+.message-body pre .hljs-meta,
+.message-body pre .hljs-tag { color: #569cd6; }
+.message-body pre .hljs-deletion { color: #f48771; }
+
+:root[data-theme="light"] .message-body pre .hljs-comment,
+:root[data-theme="system"] .message-body pre .hljs-comment,
+:root[data-theme="light"] .message-body pre .hljs-quote,
+:root[data-theme="system"] .message-body pre .hljs-quote { color: #587b36; }
+:root[data-theme="light"] .message-body pre .hljs-keyword,
+:root[data-theme="system"] .message-body pre .hljs-keyword,
+:root[data-theme="light"] .message-body pre .hljs-selector-tag,
+:root[data-theme="system"] .message-body pre .hljs-selector-tag,
+:root[data-theme="light"] .message-body pre .hljs-literal,
+:root[data-theme="system"] .message-body pre .hljs-literal,
+:root[data-theme="light"] .message-body pre .hljs-built_in,
+:root[data-theme="system"] .message-body pre .hljs-built_in { color: #8a3fa0; }
+:root[data-theme="light"] .message-body pre .hljs-string,
+:root[data-theme="system"] .message-body pre .hljs-string,
+:root[data-theme="light"] .message-body pre .hljs-doctag,
+:root[data-theme="system"] .message-body pre .hljs-doctag,
+:root[data-theme="light"] .message-body pre .hljs-regexp,
+:root[data-theme="system"] .message-body pre .hljs-regexp { color: #a14224; }
+:root[data-theme="light"] .message-body pre .hljs-number,
+:root[data-theme="system"] .message-body pre .hljs-number { color: #287a3f; }
+:root[data-theme="light"] .message-body pre .hljs-title,
+:root[data-theme="system"] .message-body pre .hljs-title,
+:root[data-theme="light"] .message-body pre .hljs-title.function_,
+:root[data-theme="system"] .message-body pre .hljs-title.function_ { color: #795e26; }
+:root[data-theme="light"] .message-body pre .hljs-attr,
+:root[data-theme="system"] .message-body pre .hljs-attr,
+:root[data-theme="light"] .message-body pre .hljs-attribute,
+:root[data-theme="system"] .message-body pre .hljs-attribute,
+:root[data-theme="light"] .message-body pre .hljs-variable,
+:root[data-theme="system"] .message-body pre .hljs-variable { color: #0451a5; }
+
+@media (prefers-color-scheme: dark) {
+  :root[data-theme="system"] .message-body pre .hljs-comment,
+  :root[data-theme="system"] .message-body pre .hljs-quote { color: #6a9955; }
+  :root[data-theme="system"] .message-body pre .hljs-keyword,
+  :root[data-theme="system"] .message-body pre .hljs-selector-tag,
+  :root[data-theme="system"] .message-body pre .hljs-literal,
+  :root[data-theme="system"] .message-body pre .hljs-built_in { color: #c586c0; }
+  :root[data-theme="system"] .message-body pre .hljs-string,
+  :root[data-theme="system"] .message-body pre .hljs-doctag,
+  :root[data-theme="system"] .message-body pre .hljs-regexp { color: #ce9178; }
+  :root[data-theme="system"] .message-body pre .hljs-number { color: #b5cea8; }
+  :root[data-theme="system"] .message-body pre .hljs-title,
+  :root[data-theme="system"] .message-body pre .hljs-title.function_ { color: #dcdcaa; }
+  :root[data-theme="system"] .message-body pre .hljs-attr,
+  :root[data-theme="system"] .message-body pre .hljs-attribute,
+  :root[data-theme="system"] .message-body pre .hljs-variable { color: #9cdcfe; }
 }
 
 /* Source Badges */
