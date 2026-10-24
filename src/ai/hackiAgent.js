@@ -4,7 +4,7 @@ import { getNewYSWS, getActiveYSWS, searchYSWS, loadYSWS, fetchYSWS, getYSWSFres
 import { getHiringOpportunities, getRecentAnnouncements, searchAnnouncements } from '../slack/announcementsCollector.js';
 import { searchOfficialKnowledge } from '../scrapers/officialKnowledge.js';
 import { searchWeb, fetchWebPage } from '../scrapers/webSearch.js';
-import { getPublicGitHubRepository, getPublicGitHubFile } from '../scrapers/github.js';
+import { getPublicGitHubRepository, getPublicGitHubFile, getPublicGitHubLanguages, getPublicGitHubReadme, getPublicGitHubUser } from '../scrapers/github.js';
 import { getAgentToolDefinitions, executeAgentTool, serializeToolResult } from './agentTools.js';
 import { loadSlackMcpTools } from './mcpServers.js';
 
@@ -328,6 +328,47 @@ export async function askHacki(userMessage, conversationHistory = [], agentConte
       sources: [],
       suggestedQueries: []
     };
+  }
+
+  // A linked repository overview is factual metadata work; answer it directly
+  // from GitHub so it does not depend on the slower chat model being available.
+  const linkedRepoMatch = query.match(/https?:\/\/github\.com\/([A-Za-z0-9-]+)\/([A-Za-z0-9_.-]+)\/?(?:[?#][^\s]*)?/i);
+  const asksRepoOverview = /\b(?:what|which|who|explain|tell me|about|purpose|language|made|author|built|stack)\b/i.test(query);
+  if (linkedRepoMatch && asksRepoOverview) {
+    const [, owner, repo] = linkedRepoMatch;
+    const repositoryUrl = `https://github.com/${owner}/${repo}`;
+    try {
+      const repository = await getPublicGitHubRepository(owner, repo);
+      const [languages, readme, profile] = await Promise.all([
+        getPublicGitHubLanguages(owner, repo),
+        getPublicGitHubReadme(owner, repo).catch(() => null),
+        getPublicGitHubUser(repository.owner).catch(() => null)
+      ]);
+      const languageEntries = Object.entries(languages || {}).sort((a, b) => b[1] - a[1]);
+      const languageBytes = languageEntries.reduce((sum, [, bytes]) => sum + bytes, 0);
+      const languageSummary = languageEntries.slice(0, 5).map(([name, bytes]) =>
+        `${name} (${languageBytes ? `${(bytes * 100 / languageBytes).toFixed(bytes * 100 / languageBytes >= 1 ? 0 : 1)}%` : 'language data'})`
+      );
+      const readmeParagraph = readme?.text.split(/\n\s*\n/).map(part => part.trim()).find(part => part && !part.startsWith('#')) || '';
+      const purpose = repository.description !== 'No description provided.'
+        ? repository.description
+        : readmeParagraph.replace(/\[([^\]]+)\]\([^)]*\)/g, '$1').replace(/\*\*/g, '').replace(/\s+/g, ' ').slice(0, 500) || 'The repository does not have a short description.';
+      const stackNames = ['React', 'Vite', 'Express', 'SQLite'].filter(name => readme?.text.toLowerCase().includes(name.toLowerCase()));
+      const author = profile?.name || repository.owner;
+      const answer = `**What it is:** ${purpose}\n\n**Who made it:** The repository is owned by [${author} (@${repository.owner})](${profile?.url || repository.ownerUrl}).\n\n**Languages:** ${languageSummary.length ? languageSummary.join(', ') : repository.language}. These percentages are based on GitHub’s language byte counts.${stackNames.length ? `\n\n**Stack mentioned in the README:** ${stackNames.join(', ')}.` : ''}`;
+      const sources = [
+        { title: `${repository.name} repository`, url: repositoryUrl, type: 'github' },
+        ...(readme ? [{ title: 'Repository README', url: readme.url, type: 'github' }] : []),
+        ...(profile ? [{ title: `${author} on GitHub`, url: profile.url, type: 'github' }] : [])
+      ];
+      return { answer, sources, suggestedQueries: [] };
+    } catch (error) {
+      return {
+        answer: `I couldn’t inspect [${owner}/${repo}](${repositoryUrl}) from GitHub just now: ${error.message}`,
+        sources: [{ title: `${owner}/${repo} repository`, url: repositoryUrl, type: 'github' }],
+        suggestedQueries: []
+      };
+    }
   }
 
   // Keep ordinary chat and short/slang messages from falling through to the

@@ -35,6 +35,8 @@ export async function getPublicGitHubRepository(owner, repo) {
   if (data.private) throw new Error('Hacki only inspects public repositories.');
   return {
     name: data.full_name,
+    owner: data.owner?.login || owner,
+    ownerUrl: data.owner?.html_url || `https://github.com/${owner}`,
     description: data.description || 'No description provided.',
     language: data.language || 'Not specified',
     stars: Number(data.stargazers_count || 0),
@@ -43,6 +45,32 @@ export async function getPublicGitHubRepository(owner, repo) {
     url: data.html_url,
     defaultBranch: data.default_branch
   };
+}
+
+export async function getPublicGitHubLanguages(owner, repo) {
+  if (!/^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$/.test(owner) || !/^[A-Za-z0-9_.-]{1,100}$/.test(repo)) {
+    throw new Error('Use a GitHub repository in `owner/repo` format.');
+  }
+  return githubGet(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/languages`);
+}
+
+export async function getPublicGitHubReadme(owner, repo) {
+  if (!/^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$/.test(owner) || !/^[A-Za-z0-9_.-]{1,100}$/.test(repo)) {
+    throw new Error('Use a GitHub repository in `owner/repo` format.');
+  }
+  const data = await githubGet(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/readme`);
+  if (data.encoding !== 'base64' || typeof data.content !== 'string') throw new Error('GitHub did not return a readable README.');
+  return {
+    name: String(data.name || 'README.md'),
+    url: String(data.html_url || `https://github.com/${owner}/${repo}/blob/HEAD/README.md`),
+    text: Buffer.from(data.content.replace(/\s/g, ''), 'base64').toString('utf8').slice(0, 20000)
+  };
+}
+
+export async function getPublicGitHubUser(username) {
+  if (!/^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$/.test(username)) throw new Error('Invalid GitHub username.');
+  const data = await githubGet(`/users/${encodeURIComponent(username)}`);
+  return { login: data.login, name: data.name || data.login, url: data.html_url };
 }
 
 export async function getPublicGitHubIssues(owner, repo, limit = 5) {
