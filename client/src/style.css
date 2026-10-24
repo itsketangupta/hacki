@@ -1188,6 +1188,8 @@ button, input, textarea, select { font-family: inherit; }
 }
 
 .message-body.streaming { white-space: pre-wrap; }
+.activity-status { color: var(--text-muted); font-size: 12px; margin: 1px 0 8px; }
+.streamed-answer { white-space: pre-wrap; overflow-wrap: anywhere; }
 
 .message-body.streaming::after {
   content: "";

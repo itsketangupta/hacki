@@ -140,6 +140,7 @@ apiRouter.post('/admin/email', async (req, res) => {
 // Chat — main endpoint
 // ---------------------------------------------------------------------------
 apiRouter.post('/chat', async (req, res) => {
+  let heartbeat = null;
   try {
     const user = getSessionUser(req);
     if (!user) {
@@ -188,8 +189,26 @@ apiRouter.post('/chat', async (req, res) => {
       });
     }
 
-    // Call the AI
-    const result = await askHacki(message, aiHistory);
+    // Stream activity and answer tokens so the browser shows retrieval work
+    // immediately and proxies do not see a long silent request.
+    res.status(200);
+    res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
+    res.setHeader('Cache-Control', 'no-cache, no-transform');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no');
+    res.flushHeaders?.();
+    const sendEvent = (event, value) => {
+      if (!res.writableEnded && res.writable) res.write(`event: ${event}\ndata: ${JSON.stringify(value)}\n\n`);
+    };
+    heartbeat = setInterval(() => {
+      if (!res.writableEnded && res.writable) res.write(': keep-alive\n\n');
+    }, 12000);
+    sendEvent('status', { message: 'Reading your question…' });
+
+    const result = await askHacki(message, aiHistory, {
+      onProgress: status => sendEvent('status', { message: status }),
+      onTextDelta: text => sendEvent('delta', { text })
+    });
     const resultSources = result.sources || [];
     const hasHackClubSources = resultSources.some(source => ['ysws', 'team', 'programs', 'official', 'slack', 'creator', 'tool', 'hcb', 'general'].includes(source.type));
     const dataDates = hasHackClubSources ? await getDataSnapshotDates() : null;
@@ -200,7 +219,7 @@ apiRouter.post('/chat', async (req, res) => {
     // Save the assistant's reply
     const answerMessageId = appendMessage(chatSession.id, 'assistant', result.answer, datedSources);
 
-    res.json({
+    sendEvent('done', {
       ok: true,
       user: user || null,
       chatKey: sessionKey,
@@ -209,8 +228,19 @@ apiRouter.post('/chat', async (req, res) => {
       sources: datedSources,
       ...(dataDates ? { dataDates } : {})
     });
+    clearInterval(heartbeat);
+    heartbeat = null;
+    res.end();
   } catch (error) {
     console.error('[API /chat error]', error);
+    if (heartbeat) clearInterval(heartbeat);
+    if (res.headersSent) {
+      if (!res.writableEnded && res.writable) {
+        res.write(`event: error\ndata: ${JSON.stringify({ error: error.message })}\n\n`);
+        res.end();
+      }
+      return;
+    }
     res.status(500).json({ ok: false, error: error.message });
   }
 });

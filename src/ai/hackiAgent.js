@@ -320,12 +320,30 @@ async function readStreamingCompletion(response, onTextDelta) {
   return { choices: [{ message }] };
 }
 
+async function reportProgress(agentContext, message) {
+  try { await agentContext.onProgress?.(message); } catch {}
+}
+
 export async function askHacki(userMessage, conversationHistory = [], agentContext = {}) {
   const query = String(userMessage || '').trim();
   if (!query) {
     return {
       answer: "Hey! I'm Hacki, your Hack Club AI assistant. Ask me anything about Hack Club, YSWS programs, team members, Teen Contributors, Gappies, free tools like ai.hackclub.com, or Slack opportunities!",
       sources: [],
+      suggestedQueries: []
+    };
+  }
+
+  const asksAboutFreeTools = /\b(?:free tools?|free ai|free hosting|give us free|does hack club give|hack club offers?)\b/i.test(query) &&
+    /\b(?:ai\.hackclub\.com|hackclub\.app|nest|tools?|hosting|ai)\b/i.test(query);
+  if (asksAboutFreeTools) {
+    return {
+      answer: 'Yes. Hack Club has free tools for teens, including [Hack Club AI](https://ai.hackclub.com), which offers AI APIs (for ages 18 and under, with usage limits), and [Nest](https://hackclub.app), a free Linux server for hosting projects. Check each site for current eligibility and setup details.',
+      sources: [
+        { title: 'Hack Club AI', url: 'https://ai.hackclub.com', type: 'tool' },
+        { title: 'Hack Club AI rules and usage limits', url: 'https://docs.ai.hackclub.com/guide/rules.html', type: 'official' },
+        { title: 'Hack Club Nest', url: 'https://hackclub.app', type: 'tool' }
+      ],
       suggestedQueries: []
     };
   }
@@ -339,6 +357,7 @@ export async function askHacki(userMessage, conversationHistory = [], agentConte
     const [, owner, repo] = linkedRepoMatch;
     const repositoryUrl = `https://github.com/${owner}/${repo}`;
     try {
+      await reportProgress(agentContext, `Opening the public GitHub repository ${owner}/${repo}…`);
       const repository = await getPublicGitHubRepository(owner, repo);
       const [languages, readme, profile, deepSearch] = await Promise.all([
         getPublicGitHubLanguages(owner, repo),
@@ -487,6 +506,7 @@ export async function askHacki(userMessage, conversationHistory = [], agentConte
   fetchYSWS().catch(() => {});
 
   // 1. Gather relevant context based on intent
+  await reportProgress(agentContext, 'Searching Hack Club sources…');
   const { contextText, sources, detectedCategory } = await buildRAGContext(query);
   // Read links the user explicitly supplied instead of depending on a small
   // local model to decide whether to invoke a retrieval tool.
@@ -497,6 +517,7 @@ export async function askHacki(userMessage, conversationHistory = [], agentConte
     try {
       const url = new URL(cleanUrl);
       if (url.protocol !== 'https:' || url.username || url.password) continue;
+      await reportProgress(agentContext, `Opening ${url.hostname}…`);
       if (url.hostname.toLowerCase() === 'github.com') {
         const parts = url.pathname.split('/').filter(Boolean).map(decodeURIComponent);
         if (parts.length >= 2) {
@@ -601,6 +622,7 @@ export async function askHacki(userMessage, conversationHistory = [], agentConte
   let webContext = '';
   if (config.webSearchEnabled && !isHackClubQuestion) {
     try {
+      await reportProgress(agentContext, 'Searching the web…');
       const webResults = await searchWeb(query, 5);
       webContext = webResults.map((item, index) => {
         const published = item.publishedDate ? `\nPublished: ${item.publishedDate}` : '';
@@ -644,6 +666,7 @@ STYLE:
   - Ask one short clarifying question when the user's request is ambiguous and the answer depends on it.`;
 
   // 3. Run inference against the local Ollama model
+  await reportProgress(agentContext, 'Writing your answer…');
   try {
     const messages = [
       { role: 'system', content: systemPrompt },
@@ -720,11 +743,16 @@ STYLE:
             continuationMessages = providerMessages;
             for (const toolCall of calls) {
               const name = toolCall.function?.name || '';
+              const rawArguments = toolCall.function?.arguments || '{}';
+              let progressLabel = 'Looking up a source…';
+              if (name.includes('search_web')) progressLabel = 'Searching the web…';
+              else if (name.includes('fetch_page') || name.includes('browse_page')) progressLabel = 'Opening the website…';
+              else if (name.includes('github')) progressLabel = 'Searching GitHub…';
+              await reportProgress(agentContext, progressLabel);
               let content;
               totalToolCalls += 1;
               try {
                 if (totalToolCalls > 8) throw new Error('This reply reached its tool-call limit.');
-                const rawArguments = toolCall.function?.arguments || '{}';
                 const args = typeof rawArguments === 'string' ? JSON.parse(rawArguments) : rawArguments;
                 const output = await executeAgentTool(name, args, toolContext);
                 for (const source of output.sources || []) {

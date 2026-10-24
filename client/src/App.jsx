@@ -178,11 +178,39 @@ function Message({ message }) {
   </div>;
 }
 
-function TypingIndicator() {
+function TypingIndicator({ status, text }) {
   return <div className="message-item assistant">
     <img className="assistant-avatar" src="/hacki-logo.png" alt="Hacki" />
-    <div className="message-body"><div className="thinking-label">Hacki is thinking</div><div className="typing-dots"><span className="dot"/><span className="dot"/><span className="dot"/></div></div>
+    <div className="message-body"><div className="activity-status" aria-live="polite">{status || 'Working…'}</div>{text ? <div className="streamed-answer">{text}</div> : <div className="typing-dots"><span className="dot"/><span className="dot"/><span className="dot"/></div>}</div>
   </div>;
+}
+
+async function readEventStream(response, onEvent) {
+  if (!response.body) throw new Error('The server closed the response before sending an answer.');
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  const dispatch = block => {
+    let event = 'message';
+    const data = [];
+    for (const line of block.split(/\r?\n/)) {
+      if (line.startsWith('event:')) event = line.slice(6).trim();
+      else if (line.startsWith('data:')) data.push(line.slice(5).trimStart());
+    }
+    if (data.length) onEvent(event, JSON.parse(data.join('\n')));
+  };
+  while (true) {
+    const { value, done } = await reader.read();
+    buffer += decoder.decode(value || new Uint8Array(), { stream: !done });
+    let boundary;
+    while ((boundary = buffer.match(/\r?\n\r?\n/))) {
+      const index = boundary.index;
+      dispatch(buffer.slice(0, index));
+      buffer = buffer.slice(index + boundary[0].length);
+    }
+    if (done) break;
+  }
+  if (buffer.trim()) dispatch(buffer);
 }
 
 function AuthModal() {
@@ -286,6 +314,8 @@ export default function App() {
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
   const [pendingChatId, setPendingChatId] = useState(null);
+  const [activityStatus, setActivityStatus] = useState('');
+  const [streamedText, setStreamedText] = useState('');
   const [opportunitiesOpen, setOpportunitiesOpen] = useState(false);
   const [adminOpen, setAdminOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(() => typeof window !== 'undefined' && window.innerWidth > 768);
@@ -357,7 +387,7 @@ export default function App() {
 
   useEffect(() => {
     if (conversationRef.current) conversationRef.current.scrollTop = conversationRef.current.scrollHeight;
-  }, [activeChat?.messages?.length, pendingChatId]);
+  }, [activeChat?.messages?.length, pendingChatId, activityStatus, streamedText]);
 
   const updateChat = useCallback((chatId, updater) => {
     setChats(current => current.map(chat => chat.id === chatId ? updater(chat) : chat));
@@ -404,6 +434,8 @@ export default function App() {
     if (textareaRef.current) textareaRef.current.style.height = 'auto';
     setSending(true);
     setPendingChatId(chatId);
+    setActivityStatus('Reading your question…');
+    setStreamedText('');
 
     try {
       const history = [...activeChat.messages, userMessage].slice(-40).map(message => ({ role: message.role, content: message.text }));
@@ -415,12 +447,23 @@ export default function App() {
         setUser(null);
         return;
       }
-      const responseText = await response.text();
       let data;
-      try { data = JSON.parse(responseText); } catch {
-        const detail = responseText.replace(/\s+/g, ' ').trim().slice(0, 180);
-        throw new Error(response.ok ? 'The server returned an unreadable response.' : `Server error (${response.status})${detail ? `: ${detail}` : '.'}`);
+      if (response.headers.get('content-type')?.includes('text/event-stream')) {
+        await readEventStream(response, (event, payload) => {
+          if (event === 'status') setActivityStatus(payload.message || 'Working…');
+          else if (event === 'delta') setStreamedText(current => current + String(payload.text || ''));
+          else if (event === 'error') throw new Error(payload.error || 'Hacki could not finish this answer.');
+          else if (event === 'done') data = payload;
+        });
+        if (!data) throw new Error('The connection ended before Hacki finished its answer. Please try again.');
+      } else {
+        const responseText = await response.text();
+        try { data = JSON.parse(responseText); } catch {
+          const detail = responseText.replace(/\s+/g, ' ').trim().slice(0, 180);
+          throw new Error(response.ok ? 'The server returned an unreadable response.' : `Server error (${response.status})${detail ? `: ${detail}` : '.'}`);
+        }
       }
+      if (!response.ok) throw new Error(data.error || `Server error (${response.status}).`);
       if (!response.ok || !data.ok) throw new Error(data.error || 'Something went wrong.');
       updateChat(chatId, chat => ({ ...chat, title, messages: [...chat.messages, { id: `${Date.now()}-assistant`, dbId: data.answerMessageId, role: 'assistant', text: data.answer, sources: data.sources || [], suggestions: data.suggestedQueries || [], animate: true }] }));
     } catch (error) {
@@ -428,6 +471,8 @@ export default function App() {
     } finally {
       setSending(false);
       setPendingChatId(null);
+      setActivityStatus('');
+      setStreamedText('');
       textareaRef.current?.focus();
     }
   }
@@ -500,7 +545,7 @@ export default function App() {
             <div className="prompt-section-label">A FEW PLACES TO START</div>
             <div className="empty-prompts-grid">{STARTER_PROMPTS.map(([icon, label, query]) => <button key={label} className="empty-prompt-card" onClick={() => handleSend(query)}><span className="prompt-icon"><img src={icon} alt="" /></span><span className="prompt-text">{label}</span></button>)}</div>
           </div>}
-          {activeChat?.messages?.length > 0 && <div className="messages-list">{activeChat.messages.map((message, index) => <Message key={message.id || `${activeChat.id}-${index}`} message={message}/>)}{pendingChatId === activeChat.id && <TypingIndicator/>}</div>}
+          {activeChat?.messages?.length > 0 && <div className="messages-list">{activeChat.messages.map((message, index) => <Message key={message.id || `${activeChat.id}-${index}`} message={message}/>)}{pendingChatId === activeChat.id && <TypingIndicator status={activityStatus} text={streamedText}/>}</div>}
         </div>}
 
         {!opportunitiesOpen && !adminOpen && <div className="input-container"><div className="input-box">
