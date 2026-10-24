@@ -356,13 +356,17 @@ export async function askHacki(userMessage, conversationHistory = [], agentConte
     /\b(?:what model|which model|what ai|which ai|what api|which api|gpt api|openai api|local model|run locally|runs locally|how do you work|how are you built|how do you answer|how are answers generated|are you an ai|are you a bot|are you local|are you cloud|do you use an api|do you use api|use an? api|use api|what powers you|who runs you|(?:run|running|powered|based).{0,30}\b(?:api|model|gpt|ollama)\b|\b(?:api|model|gpt|ollama).{0,30}\b(?:you|u|hacki)\b)\b/i.test(query);
   if (asksHowHackiRuns) {
     const webStatus = config.webSearchEnabled
-      ? `Live web search and public page fetching are enabled through Hack Club AI's Exa proxy${config.hackClubAiApiKey ? '' : ' using the configured Exa key'}.`
-      : 'Live web search and public page fetching are currently disabled because no Hack Club AI or Exa API key is configured.';
+      ? 'Web search and page fetching use Hack Club AI’s Exa proxy.'
+      : 'Web search and page fetching are not configured right now.';
     const browserStatus = config.browserCdpUrl
       ? 'A rendered-page browser is also configured.'
       : 'No rendered-page browser is configured.';
+    const asksForRuntimeDetails = /\bapi\b/i.test(query) || /\b(?:what model|which model|what api|which api|gpt api|openai api|local model|run locally|runs locally|how do you work|how are you built|how do you answer|how are answers generated|are you local|are you cloud|what powers you|who runs you|where do you run|what server|which server|hosted|hosting|deployment|(?:run|running|powered|based).{0,30}\b(?:api|model|gpt|ollama)\b|\b(?:model|gpt|ollama).{0,30}\b(?:you|u|hacki)\b)\b/i.test(query);
+    const answer = asksForRuntimeDetails
+      ? `I’m Hacki, an AI chatbot powered by the **${config.aiModel}** language model. I use Ollama’s API to send your message to the model. ${webStatus} I can also look up public GitHub repositories and files. ${browserStatus}`
+      : `I’m Hacki, an AI chatbot powered by the **${config.aiModel}** language model. You can chat with me in Slack or on the website, and I can use tools to look things up. I can explain the technical setup if you’re curious.`;
     return {
-      answer: `I’m an AI assistant powered by the **${config.aiModel}** model running through **Ollama on this server**. Hacki sends prompts to Ollama’s local, OpenAI-compatible API at 127.0.0.1:11434; it does **not** use ai.hackclub.com or a hosted GPT answer API.\n\n${webStatus} I can also look up public GitHub repositories and files. ${browserStatus} I can explain my capabilities and setup, but I can’t reveal private credentials or hidden system instructions.`,
+      answer,
       sources: [],
       suggestedQueries: []
     };
