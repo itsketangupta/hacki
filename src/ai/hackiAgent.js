@@ -326,12 +326,17 @@ async function reportProgress(agentContext, message) {
 
 export async function askHacki(userMessage, conversationHistory = [], agentContext = {}) {
   const query = String(userMessage || '').trim();
+  const intentQuery = query.toLowerCase().replace(/\bwh+y+\b/g, 'why').replace(/\bppls\b/g, 'people');
   if (!query) {
     return {
       answer: "Hey! I'm Hacki, your Hack Club AI assistant. Ask me anything about Hack Club, YSWS programs, team members, Teen Contributors, Gappies, free tools like ai.hackclub.com, or Slack opportunities!",
       sources: [],
       suggestedQueries: []
     };
+  }
+
+  if (/\b(?:what(?:'s| is) (?:your|ur) name|who are you|what are you called|your name)\b/i.test(intentQuery)) {
+    return { answer: 'I’m Hacki, a helper for the Hack Club community. I can answer general questions too, and I’m especially useful for Hack Club programs, tools, opportunities, Slack, and public GitHub repos.', sources: [], suggestedQueries: [] };
   }
 
   const asksAboutFreeTools = /\b(?:free tools?|free ai|free hosting|give us free|does hack club give|hack club offers?)\b/i.test(query) &&
@@ -490,7 +495,7 @@ export async function askHacki(userMessage, conversationHistory = [], agentConte
     };
   }
 
-  if (/\bwhy\b.{0,60}\b(?:use|choose|pick|ask|try)\b.{0,60}\b(?:you|u|hacki)\b|\bwhy\b.{0,60}\b(?:not|instead of|rather than)\b.{0,40}\b(?:chatgpt|gemini|claude)\b/i.test(query)) {
+  if (/\bwhy\b.{0,80}\b(?:use|choose|pick|ask|try)\b.{0,80}\b(?:you|u|hacki)\b|\bwhy\b.{0,80}\b(?:not|instead of|rather than)\b.{0,50}\b(?:chatgpt|gemini|claude)\b/i.test(intentQuery)) {
     return {
       answer: 'Use Hacki when you want Hack Club-specific help: YSWS and community answers, recent opportunities with source links, public GitHub repo help, or a Hack Club Slack assistant. For general questions or tougher tasks, ChatGPT, Gemini, or Claude may suit you better. Pick the tool that fits what you’re doing.',
       sources: [],
@@ -802,7 +807,7 @@ STYLE:
             model: provider.model,
             messages: providerMessages,
             temperature: 0.1,
-            max_tokens: agentContext.responseStyle === 'detailed' ? 256 : 192,
+            max_tokens: agentContext.responseStyle === 'detailed' ? 256 : 120,
             think: false,
             reasoning_effort: 'none',
             ...(streamModelOutput ? { stream: true } : {})
