@@ -1067,7 +1067,8 @@ button, input, textarea, select { font-family: inherit; }
   margin: 14px 0;
   max-width: 100%;
   max-height: 440px;
-  overflow: auto;
+  overflow-x: auto;
+  overflow-y: auto;
   overscroll-behavior: contain;
   scrollbar-width: thin;
   scrollbar-color: var(--text-muted) transparent;
@@ -1075,7 +1076,8 @@ button, input, textarea, select { font-family: inherit; }
 
 .message-body pre code {
   display: block;
-  min-width: max-content;
+  width: max-content;
+  min-width: 100%;
   white-space: pre;
 }
 
