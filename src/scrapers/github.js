@@ -67,6 +67,22 @@ export async function getPublicGitHubReadme(owner, repo) {
   };
 }
 
+export async function findPublicGitHubFiles(owner, repo, filename) {
+  if (!/^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$/.test(owner) || !/^[A-Za-z0-9_.-]{1,100}$/.test(repo)) {
+    throw new Error('Use a GitHub repository in `owner/repo` format.');
+  }
+  const wanted = String(filename || '').trim().toLowerCase();
+  if (!/^[A-Za-z0-9_.-]{1,160}$/.test(wanted)) throw new Error('Give a filename to look for.');
+  const repository = await getPublicGitHubRepository(owner, repo);
+  const ref = repository.defaultBranch || 'HEAD';
+  const tree = await githubGet(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/git/trees/${encodeURIComponent(ref)}?recursive=1`);
+  return (tree.tree || [])
+    .filter(entry => entry.type === 'blob' && entry.path?.split('/').at(-1).toLowerCase() === wanted)
+    .sort((a, b) => a.path.length - b.path.length || a.path.localeCompare(b.path))
+    .slice(0, 20)
+    .map(entry => ({ path: entry.path, size: Number(entry.size || 0), ref, url: `https://github.com/${owner}/${repo}/blob/${encodeURIComponent(ref)}/${entry.path.split('/').map(encodeURIComponent).join('/')}` }));
+}
+
 export async function getPublicGitHubUser(username) {
   if (!/^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$/.test(username)) throw new Error('Invalid GitHub username.');
   const data = await githubGet(`/users/${encodeURIComponent(username)}`);

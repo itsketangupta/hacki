@@ -4,7 +4,7 @@ import { getNewYSWS, getActiveYSWS, searchYSWS, loadYSWS, fetchYSWS, getYSWSFres
 import { getHiringOpportunities, getRecentAnnouncements, searchAnnouncements } from '../slack/announcementsCollector.js';
 import { searchOfficialKnowledge } from '../scrapers/officialKnowledge.js';
 import { searchWeb, fetchWebPage } from '../scrapers/webSearch.js';
-import { getPublicGitHubRepository, getPublicGitHubFile, getPublicGitHubLanguages, getPublicGitHubReadme, getPublicGitHubUser, searchPublicGitHubRepository } from '../scrapers/github.js';
+import { getPublicGitHubRepository, getPublicGitHubFile, getPublicGitHubLanguages, getPublicGitHubReadme, getPublicGitHubUser, searchPublicGitHubRepository, findPublicGitHubFiles } from '../scrapers/github.js';
 import { getAgentToolDefinitions, executeAgentTool, serializeToolResult } from './agentTools.js';
 import { loadSlackMcpTools } from './mcpServers.js';
 
@@ -360,6 +360,59 @@ export async function askHacki(userMessage, conversationHistory = [], agentConte
   // A linked repository overview is factual metadata work; answer it directly
   // from GitHub so it does not depend on the slower chat model being available.
   const linkedRepoMatch = query.match(/https?:\/\/github\.com\/([A-Za-z0-9-]+)\/([A-Za-z0-9_.-]+)\/?(?:[?#][^\s]*)?/i);
+  const linkedBlobMatch = query.match(/https?:\/\/github\.com\/([A-Za-z0-9-]+)\/([A-Za-z0-9_.-]+)\/blob\/([^/\s?#]+)\/([^\s?#]+)/i);
+  const asksToReadFile = /\b(?:copy|paste|show|read|open|print|give|get|contents?|source|code)\b/i.test(query);
+  if (linkedBlobMatch && asksToReadFile) {
+    const [, owner, repo, ref, encodedPath] = linkedBlobMatch;
+    const filePath = encodedPath.split('/').map(decodeURIComponent).join('/');
+    const repositoryUrl = `https://github.com/${owner}/${repo}`;
+    try {
+      await reportProgress(agentContext, `Reading ${filePath} from GitHub…`);
+      const file = await getPublicGitHubFile(owner, repo, filePath, decodeURIComponent(ref));
+      const language = file.path.split('.').at(-1)?.toLowerCase() || '';
+      const truncatedNote = file.truncated ? '\n\n(Preview is truncated at 12,000 characters.)' : '';
+      return {
+        answer: `Here is [\`${file.path}\`](${file.url}):\n\n\`\`\`${language}\n${file.content}\n\`\`\`${truncatedNote}`,
+        sources: [{ title: file.path, url: file.url, type: 'github' }],
+        suggestedQueries: []
+      };
+    } catch (error) {
+      return { answer: `I couldn’t read that file from GitHub: ${error.message}`, sources: [{ title: `${owner}/${repo}`, url: repositoryUrl, type: 'github' }], suggestedQueries: [] };
+    }
+  }
+
+  const trailingFilePath = linkedRepoMatch
+    ? query.slice(linkedRepoMatch.index + linkedRepoMatch[0].length).match(/(?:^|\s)([A-Za-z0-9_.-]+(?:\/[A-Za-z0-9_.-]+)*\.(?:html?|jsx?|tsx?|css|json|md|ya?ml|py|go|rs|java|toml|sh|sql))(?:\b|$)/i)?.[1]
+    : null;
+  if (linkedRepoMatch && trailingFilePath && asksToReadFile) {
+    const [, owner, repo] = linkedRepoMatch;
+    const repositoryUrl = `https://github.com/${owner}/${repo}`;
+    try {
+      await reportProgress(agentContext, `Finding ${trailingFilePath} in ${owner}/${repo}…`);
+      let filePath = trailingFilePath;
+      if (!filePath.includes('/')) {
+        const matches = await findPublicGitHubFiles(owner, repo, filePath);
+        if (matches.length > 1) {
+          return {
+            answer: `I found multiple \`${filePath}\` files. Which one do you want?\n${matches.map(file => `- [\`${file.path}\`](${file.url})`).join('\n')}`,
+            sources: [{ title: `${owner}/${repo} repository`, url: repositoryUrl, type: 'github' }, ...matches.map(file => ({ title: file.path, url: file.url, type: 'github' }))],
+            suggestedQueries: []
+          };
+        }
+        if (matches.length === 1) filePath = matches[0].path;
+      }
+      const file = await getPublicGitHubFile(owner, repo, filePath);
+      const language = file.path.split('.').at(-1)?.toLowerCase() || '';
+      const truncatedNote = file.truncated ? '\n\n(Preview is truncated at 12,000 characters.)' : '';
+      return {
+        answer: `Here is [\`${file.path}\`](${file.url}):\n\n\`\`\`${language}\n${file.content}\n\`\`\`${truncatedNote}`,
+        sources: [{ title: file.path, url: file.url, type: 'github' }],
+        suggestedQueries: []
+      };
+    } catch (error) {
+      return { answer: `I couldn’t read \`${trailingFilePath}\` from [${owner}/${repo}](${repositoryUrl}): ${error.message}`, sources: [{ title: `${owner}/${repo} repository`, url: repositoryUrl, type: 'github' }], suggestedQueries: [] };
+    }
+  }
   const asksDeepRepo = /\bdeep\b.{0,12}\b(?:search|scan|dive|inspect|explore)\b|\b(?:search|scan|inspect|explore|look through)\b.{0,45}\b(?:repo|repository|codebase|code|files?)\b|\b(?:repo|repository|codebase)\b.{0,45}\b(?:deep|search|scan|inspect|explore)\b/i.test(query);
   const asksRepoOverview = asksDeepRepo || /\b(?:what|which|who|explain|tell me|about|purpose|language|made|author|built|stack)\b/i.test(query);
   if (linkedRepoMatch && asksRepoOverview) {
