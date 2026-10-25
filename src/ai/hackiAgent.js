@@ -334,6 +334,53 @@ export async function askHacki(userMessage, conversationHistory = [], agentConte
     };
   }
 
+  // The signed-in Slack identity is authoritative for first-person profile
+  // questions. Only request the profile when the user asks about themselves.
+  const asksWhoAmI = /\b(?:who\s+am\s+i|what\s+is\s+my\s+(?:slack\s+)?profile|tell\s+me\s+about\s+me|what\s+do\s+you\s+know\s+about\s+me)\b/i.test(query);
+  if (asksWhoAmI) {
+    const slackUserId = agentContext.slackUserId;
+    if (slackUserId) {
+      try {
+        let user;
+        if (agentContext.client?.users?.info) {
+          user = (await agentContext.client.users.info({ user: slackUserId }))?.user;
+        } else if (config.slackBotToken) {
+          const response = await fetch(`https://slack.com/api/users.info?user=${encodeURIComponent(slackUserId)}`, {
+            headers: { Authorization: `Bearer ${config.slackBotToken}` }
+          });
+          const result = await response.json();
+          if (result.ok) user = result.user;
+        }
+        if (user) {
+          const profile = user.profile || {};
+          const name = profile.real_name || user.real_name || user.name || 'your Slack account';
+          const titleParts = String(profile.title || '').split('|').map(part => part.trim()).filter(Boolean);
+          const identityParts = titleParts.filter(part => /\b(?:front[- ]end|developer|helper of|co[- ]org|organizer|maker of)\b/i.test(part));
+          const humanize = value => value
+            .replace(/^front[- ]end\s+devloper$/i, 'front-end developer')
+            .replace(/^front[- ]end\s+developer$/i, 'front-end developer')
+            .replace(/^co[- ]org\b/i, 'co-organizer')
+            .replace(/^org\b/i, 'organizer')
+            .replace(/^maker of\b/i, 'maker of')
+            .replace(/^helper of\b/i, 'helper of');
+          const joinNaturally = values => values.length < 2 ? values[0] : `${values.slice(0, -1).join(', ')} and ${values.at(-1)}`;
+          const identitySummary = identityParts.length ? `Your profile describes you as ${joinNaturally(identityParts.map(humanize))}.` : '';
+          const pronouns = profile.pronouns ? `Your pronouns are ${profile.pronouns}.` : '';
+          const status = profile.status_text ? ` Your Slack status says “${[profile.status_emoji, profile.status_text].filter(Boolean).join(' ')}.”` : '';
+          const summary = [`You’re ${name}.`, identitySummary, pronouns].filter(Boolean).join(' ');
+          return {
+            answer: `${summary}${status}\n\n[View your Slack profile](https://hackclub.enterprise.slack.com/team/${encodeURIComponent(slackUserId)})`,
+            sources: [{ title: `${name}’s Slack profile`, url: `https://hackclub.enterprise.slack.com/team/${encodeURIComponent(slackUserId)}`, type: 'slack' }],
+            suggestedQueries: []
+          };
+        }
+      } catch (error) {
+        console.warn('[HackiAgent] Could not load requester Slack profile:', error.message);
+      }
+    }
+    return { answer: 'I can identify you from your Slack profile when I have your Slack account linked. I couldn’t access a linked profile for this chat.', sources: [], suggestedQueries: [] };
+  }
+
   const asksAboutFreeTools = /\b(?:free tools?|free ai|free hosting|give us free|does hack club give|hack club offers?)\b/i.test(query) &&
     /\b(?:ai\.hackclub\.com|hackclub\.app|nest|tools?|hosting|ai)\b/i.test(query);
   if (asksAboutFreeTools) {
@@ -1124,7 +1171,7 @@ async function buildRAGContext(query) {
   }
 
   // 11. Check Hacki / Who are you
-  const isHackiQuery = /\b(what is hacki|who is hacki|who are you|what can you do|about hacki|what do you do)\b/i.test(q);
+  const isHackiQuery = /\b(?:what is hacki|who is hacki|who are you|what can you do|about hacki|what do you do|why (?:is|was|does|did) hacki|how (?:is|does|was) hacki|what(?:'s| is) hacki for|why (?:should|would) (?:i|we) use hacki)\b/i.test(q);
   if (isHackiQuery) {
     contextParts.push('=== ABOUT HACKI (HACK CLUB AI ASSISTANT) ===');
     contextParts.push('Hacki is a conversational AI assistant built for the Hack Club community. It can chat naturally, explain its capabilities, answer general questions, and help with writing and brainstorming. It can also search its indexed Hack Club sources for team information, YSWS programs, official resources, and Slack opportunities.');

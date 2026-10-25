@@ -208,6 +208,7 @@ apiRouter.post('/chat', async (req, res) => {
     let chatPreferences = {};
     try { chatPreferences = JSON.parse(getSetting(user.id, 'hacki_preferences', '{}')) || {}; } catch {}
     const result = await askHacki(message, aiHistory, {
+      slackUserId: user.slackId,
       responseStyle: String(chatPreferences.responseStyle || 'default').slice(0, 24),
       responseLanguage: String(chatPreferences.responseLanguage || 'auto').slice(0, 12),
       customInstructions: String(chatPreferences.customInstructions || '').slice(0, 2000),
