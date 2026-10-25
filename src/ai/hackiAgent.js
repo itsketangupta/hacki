@@ -356,6 +356,7 @@ export async function askHacki(userMessage, conversationHistory = [], agentConte
           const name = profile.real_name || user.real_name || user.name || 'your Slack account';
           const titleParts = String(profile.title || '').split('|').map(part => part.trim()).filter(Boolean);
           const identityParts = titleParts.filter(part => /\b(?:front[- ]end|developer|helper of|co[- ]org|organizer|maker of)\b/i.test(part));
+          const otherHeadlineParts = titleParts.filter(part => !identityParts.includes(part));
           const humanize = value => value
             .replace(/^front[- ]end\s+devloper$/i, 'front-end developer')
             .replace(/^front[- ]end\s+developer$/i, 'front-end developer')
@@ -364,12 +365,22 @@ export async function askHacki(userMessage, conversationHistory = [], agentConte
             .replace(/^maker of\b/i, 'maker of')
             .replace(/^helper of\b/i, 'helper of');
           const joinNaturally = values => values.length < 2 ? values[0] : `${values.slice(0, -1).join(', ')} and ${values.at(-1)}`;
-          const identitySummary = identityParts.length ? `Your profile describes you as ${joinNaturally(identityParts.map(humanize))}.` : '';
-          const pronouns = profile.pronouns ? `Your pronouns are ${profile.pronouns}.` : '';
+          const identitySummary = identityParts.length ? `Your headline describes you as ${joinNaturally(identityParts.map(humanize))}.` : '';
+          const otherHeadline = otherHeadlineParts.length ? ` It also mentions ${joinNaturally(otherHeadlineParts.map(part => `“${part}”`))}.` : '';
+          const profileFields = Object.values(profile.fields || {}).map(field => {
+            const value = typeof field === 'string' ? field : field?.value;
+            const label = typeof field === 'object' ? (field.label || field.name || field.title) : '';
+            return value ? { label: String(label || 'Additional profile detail').trim(), value: String(value).trim() } : null;
+          }).filter(field => field?.value);
+          const fieldSummary = profileFields.length
+            ? ` Your profile also lists ${joinNaturally(profileFields.map(field => field.label === 'Additional profile detail' ? `“${field.value}”` : `${field.label}: “${field.value}”`))}.`
+            : '';
+          const pronouns = profile.pronouns ? ` Your pronouns are ${profile.pronouns}.` : '';
           const status = profile.status_text ? ` Your Slack status says “${[profile.status_emoji, profile.status_text].filter(Boolean).join(' ')}.”` : '';
-          const summary = [`You’re ${name}.`, identitySummary, pronouns].filter(Boolean).join(' ');
+          const timezone = user.tz ? ` Your Slack time zone is ${user.tz}.` : '';
+          const summary = `You’re ${name}.${identitySummary ? ` ${identitySummary}` : ''}${otherHeadline}${fieldSummary}${pronouns}${status}${timezone}`;
           return {
-            answer: `${summary}${status}\n\n[View your Slack profile](https://hackclub.enterprise.slack.com/team/${encodeURIComponent(slackUserId)})`,
+            answer: `${summary}\n\n[View your Slack profile](https://hackclub.enterprise.slack.com/team/${encodeURIComponent(slackUserId)})`,
             sources: [{ title: `${name}’s Slack profile`, url: `https://hackclub.enterprise.slack.com/team/${encodeURIComponent(slackUserId)}`, type: 'slack' }],
             suggestedQueries: []
           };
